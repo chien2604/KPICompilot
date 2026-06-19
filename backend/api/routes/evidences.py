@@ -51,17 +51,25 @@ def get_analysis(evidence_id: int, db: Session = Depends(get_db)) -> dict:
     item = db.get(TaskEvidence, evidence_id)
     if not item:
         raise HTTPException(status_code=404, detail="Không tìm thấy minh chứng")
-    missing = []
+    
+    missing_data = {}
     if item.ai_missing_points:
         try:
-            missing = json.loads(item.ai_missing_points)
+            parsed = json.loads(item.ai_missing_points)
+            if isinstance(parsed, dict):
+                missing_data = parsed
+            elif isinstance(parsed, list):
+                missing_data = {"checklist": parsed, "strengths": [], "weaknesses": []}
         except Exception:
-            missing = [item.ai_missing_points]
+            missing_data = {"checklist": [], "strengths": [], "weaknesses": []}
+
     return {
         "evidence_id": item.id,
         "relevance_score": item.ai_relevance_score,
         "summary": item.ai_summary,
-        "missing_points": missing,
+        "checklist": missing_data.get("checklist", []),
+        "strengths": missing_data.get("strengths", []),
+        "weaknesses": missing_data.get("weaknesses", []),
         "status": item.status,
         "extracted_text": item.extracted_text,
     }

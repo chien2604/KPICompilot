@@ -34,11 +34,31 @@ class EvidenceService:
             analysis = EvidenceAnalyzer().analyze(task.title if task else "", task.description if task else "", indexed["text"])
             evidence.ai_relevance_score = float(analysis.get("relevance_score") or 0)
             evidence.ai_summary = analysis.get("summary")
-            evidence.ai_missing_points = json.dumps(analysis.get("missing_points", []), ensure_ascii=False)
+            evidence.ai_missing_points = json.dumps({
+                "checklist": analysis.get("checklist", []),
+                "strengths": analysis.get("strengths", []),
+                "weaknesses": analysis.get("weaknesses", [])
+            }, ensure_ascii=False)
             evidence.status = "ANALYZED"
         except Exception as exc:
-            evidence.status = "FAILED"
-            evidence.ai_summary = f"Lỗi xử lý minh chứng: {exc}"
+            import traceback
+            traceback.print_exc()
+            self.db.rollback()
+            # Mất transaction nên phải tạo lại evidence
+            new_evidence = TaskEvidence(
+                task_id=task_id,
+                uploaded_by=uploaded_by,
+                file_name=file_name,
+                file_type=file.content_type,
+                file_path=file_path,
+                status="FAILED",
+                ai_summary=f"Lỗi hệ thống: {exc}"
+            )
+            self.db.add(new_evidence)
+            self.db.commit()
+            self.db.refresh(new_evidence)
+            return new_evidence
+            
         self.db.commit()
         self.db.refresh(evidence)
         return evidence
@@ -51,7 +71,11 @@ class EvidenceService:
         analysis = EvidenceAnalyzer().analyze(task.title if task else "", task.description if task else "", evidence.extracted_text or "")
         evidence.ai_relevance_score = float(analysis.get("relevance_score") or 0)
         evidence.ai_summary = analysis.get("summary")
-        evidence.ai_missing_points = json.dumps(analysis.get("missing_points", []), ensure_ascii=False)
+        evidence.ai_missing_points = json.dumps({
+            "checklist": analysis.get("checklist", []),
+            "strengths": analysis.get("strengths", []),
+            "weaknesses": analysis.get("weaknesses", [])
+        }, ensure_ascii=False)
         evidence.status = "ANALYZED"
         self.db.commit()
         self.db.refresh(evidence)
