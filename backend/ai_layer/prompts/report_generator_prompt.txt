@@ -1,0 +1,8 @@
+Sinh báo cáo giao ban từ dữ liệu có cấu trúc.
+Báo cáo gồm các phần:
+1. Tình hình chung.
+2. Điểm sáng.
+3. Nhiệm vụ chậm.
+4. Cá nhân/phòng ban rủi ro.
+5. Kiến nghị.
+Có thể xuất HTML đơn giản.

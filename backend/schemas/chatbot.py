@@ -1,0 +1,15 @@
+from pydantic import BaseModel
+
+
+class ChatbotMessageIn(BaseModel):
+    user_id: int | None = None
+    message: str
+    month: str | None = None
+    department_id: int | None = None
+
+
+class ChatbotMessageOut(BaseModel):
+    answer: str
+    intent: str
+    data: dict = {}
+    sources: list = []
