@@ -270,12 +270,7 @@
       <label>Hạn chót</label>
       <input type="date" id="taskDeadline" />
 
-      <label>Trọng số: <span id="weightDisplay">10</span>%</label>
-      <div class="range-row">
-        <input type="range" id="taskWeight" min="1" max="100" value="10"
-               oninput="document.getElementById('weightDisplay').textContent=this.value" />
-        <div class="range-val" id="weightVal">10%</div>
-      </div>
+
 
       <label>Người nộp *</label>
       <input type="text" id="uploaderName" placeholder="VD: Nguyễn Văn A" />
@@ -592,11 +587,7 @@ dz.addEventListener('drop', e => {
   }
 });
 
-// Range display sync
-document.getElementById('taskWeight').addEventListener('input', function() {
-  document.getElementById('weightDisplay').textContent = this.value;
-  document.getElementById('weightVal').textContent = this.value + '%';
-});
+
 
 // ══════════════════════════════════════════
 // Upload
@@ -621,7 +612,6 @@ async function uploadFile() {
   fd.append('task_description', document.getElementById('taskDesc').value);
   fd.append('task_deadline', document.getElementById('taskDeadline').value
     ? new Date(document.getElementById('taskDeadline').value).toLocaleDateString('vi-VN') : '');
-  fd.append('task_weight', document.getElementById('taskWeight').value);
   fd.append('uploader_name', uploaderName);
   fd.append('department', document.getElementById('department').value);
 
