@@ -1,0 +1,12 @@
+# Môi trường và cấu hình bảo mật
+backend/.env
+backend/.venv/
+
+# Cache của Python
+backend/__pycache__/
+__pycache__/
+
+# Dữ liệu và tệp tải lên (dựa theo cấu trúc hiện tại)
+backend/data/
+backend/uploads/
+backend/KHONG CHUC VU dx.xlsx

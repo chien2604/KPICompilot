@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Module 6 – AI Phân tích Minh chứng · Test UI</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:      #0a0f1e;
+    --surface: #111827;
+    --card:    #161f35;
+    --border:  rgba(99,102,241,.18);
+    --primary: #6366f1;
+    --cyan:    #06b6d4;
+    --green:   #10b981;
+    --yellow:  #f59e0b;
+    --red:     #ef4444;
+    --text:    #f1f5f9;
+    --muted:   #94a3b8;
+    --dim:     #475569;
+    --grad:    linear-gradient(135deg,#6366f1,#06b6d4);
+  }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif;
+         font-size:14px; min-height:100vh; }
+  h1,h2,h3 { font-weight:700; }
+  a { color:var(--cyan); }
+
+  /* Layout */
+  .shell { display:grid; grid-template-columns:340px 1fr; min-height:100vh; }
+  .panel-left  { background:var(--surface); border-right:1px solid var(--border);
+                 padding:24px 20px; display:flex; flex-direction:column; gap:20px;
+                 position:sticky; top:0; height:100vh; overflow-y:auto; }
+  .panel-right { padding:24px; display:flex; flex-direction:column; gap:20px; }
+
+  /* Header */
+  .header { display:flex; align-items:center; gap:10px; padding-bottom:16px;
+            border-bottom:1px solid var(--border); }
+  .logo { width:36px; height:36px; background:var(--grad); border-radius:8px;
+          display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .header h1 { font-size:15px; }
+  .header small { display:block; color:var(--muted); font-size:11px; margin-top:1px; }
+
+  /* Status bar */
+  .status-bar { display:flex; align-items:center; gap:8px; padding:8px 12px;
+                border-radius:8px; font-size:12px; font-weight:600; }
+  .status-bar.ok  { background:rgba(16,185,129,.1); color:#34d399; border:1px solid rgba(16,185,129,.25); }
+  .status-bar.err { background:rgba(239,68,68,.1);  color:#f87171; border:1px solid rgba(239,68,68,.25); }
+  .dot { width:8px; height:8px; border-radius:50%; background:currentColor;
+         animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* Form */
+  label { display:block; font-size:12px; font-weight:600; color:var(--muted);
+          margin-bottom:5px; margin-top:14px; text-transform:uppercase; letter-spacing:.4px; }
+  label:first-child { margin-top:0; }
+  input, select, textarea {
+    width:100%; padding:9px 12px; background:rgba(255,255,255,.04);
+    border:1px solid var(--border); border-radius:8px; color:var(--text);
+    font-size:13px; outline:none; transition:border-color .15s;
+    font-family:inherit;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color:rgba(99,102,241,.55); box-shadow:0 0 0 3px rgba(99,102,241,.1);
+  }
+  textarea { resize:vertical; min-height:60px; }
+  input[type=range] {
+    padding:0; height:6px; border:none; accent-color:var(--primary); cursor:pointer;
+  }
+  .range-row { display:flex; align-items:center; gap:10px; }
+  .range-row input { flex:1; }
+  .range-val { min-width:32px; text-align:center; font-weight:700;
+               color:var(--primary); font-size:15px; }
+
+  /* Upload drop zone */
+  .drop-zone {
+    border:2px dashed rgba(99,102,241,.35); border-radius:12px;
+    padding:28px 16px; text-align:center; cursor:pointer;
+    transition:all .2s; position:relative; background:rgba(99,102,241,.03);
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color:rgba(99,102,241,.7); background:rgba(99,102,241,.07);
+  }
+  .drop-zone input[type=file] {
+    position:absolute; inset:0; opacity:0; cursor:pointer;
+    width:100%; height:100%; border:none; background:none; padding:0;
+  }
+  .drop-icon { font-size:32px; margin-bottom:8px; }
+  .drop-label { font-size:13px; font-weight:600; color:var(--text); }
+  .drop-sub { font-size:11px; color:var(--muted); margin-top:4px; }
+  .file-chosen { margin-top:8px; font-size:12px; color:var(--cyan); font-weight:600; }
+
+  /* Buttons */
+  .btn { display:inline-flex; align-items:center; gap:7px; padding:10px 20px;
+         border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;
+         border:none; transition:all .2s; font-family:inherit; }
+  .btn-primary { background:var(--grad); color:#fff; box-shadow:0 4px 14px rgba(99,102,241,.3); }
+  .btn-primary:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(99,102,241,.4); }
+  .btn-primary:disabled { opacity:.5; transform:none; cursor:not-allowed; }
+  .btn-ghost { background:rgba(255,255,255,.05); color:var(--muted);
+               border:1px solid var(--border); }
+  .btn-ghost:hover { color:var(--text); background:rgba(255,255,255,.08); }
+  .btn-danger { background:rgba(239,68,68,.15); color:#f87171;
+                border:1px solid rgba(239,68,68,.25); }
+  .btn-danger:hover { background:rgba(239,68,68,.25); }
+  .btn-sm { padding:5px 10px; font-size:11px; }
+  .btn-full { width:100%; justify-content:center; }
+
+  /* Card */
+  .card { background:var(--card); border:1px solid var(--border);
+          border-radius:14px; overflow:hidden; }
+  .card-hd { padding:14px 18px; border-bottom:1px solid var(--border);
+             display:flex; align-items:center; justify-content:space-between; }
+  .card-hd h3 { font-size:14px; }
+  .card-bd { padding:18px; }
+
+  /* Badge */
+  .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px;
+           border-radius:99px; font-size:11px; font-weight:700; }
+  .badge::before { content:''; width:5px; height:5px; border-radius:50%; background:currentColor; }
+  .badge-pending  { background:rgba(245,158,11,.12); color:#fbbf24; }
+  .badge-analyzing{ background:rgba(99,102,241,.15); color:#a5b4fc; }
+  .badge-done     { background:rgba(16,185,129,.12);  color:#34d399; }
+  .badge-error    { background:rgba(239,68,68,.12);   color:#f87171; }
+
+  /* Score ring */
+  .score-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .score-circle { position:relative; width:110px; height:110px; }
+  .score-circle svg { width:110px; height:110px; }
+  .score-inner { position:absolute; inset:0; display:flex; flex-direction:column;
+                 align-items:center; justify-content:center; }
+  .score-num { font-size:28px; font-weight:800; line-height:1; }
+  .score-lbl { font-size:11px; color:var(--muted); }
+  .score-tag { background:var(--grad); color:#fff; font-size:11px; font-weight:700;
+               padding:3px 10px; border-radius:99px; }
+
+  /* Checklist */
+  .checklist { display:flex; flex-direction:column; gap:6px; }
+  .check-item { display:flex; align-items:flex-start; gap:10px; padding:8px 12px;
+                background:rgba(255,255,255,.03); border-radius:8px;
+                font-size:13px; color:var(--muted); }
+  .check-icon { width:18px; height:18px; border-radius:50%; display:flex;
+                align-items:center; justify-content:center; flex-shrink:0; font-size:11px; }
+  .check-ok  { background:rgba(16,185,129,.15); color:#34d399; }
+  .check-no  { background:rgba(239,68,68,.12);  color:#f87171; }
+  .check-note { font-size:11px; color:var(--dim); margin-top:2px; }
+
+  /* AI comment block */
+  .ai-block { background:rgba(99,102,241,.07); border:1px solid rgba(99,102,241,.2);
+              border-radius:10px; padding:14px; position:relative; margin-top:4px; }
+  .ai-tag { position:absolute; top:-10px; left:14px; background:var(--grad); color:#fff;
+            font-size:9px; font-weight:700; padding:2px 8px; border-radius:99px; }
+  .ai-block p { color:var(--muted); font-size:13px; line-height:1.7; }
+
+  /* Evidence list */
+  .ev-list { display:flex; flex-direction:column; gap:8px; }
+  .ev-item { display:flex; align-items:center; gap:12px; padding:10px 14px;
+             background:rgba(255,255,255,.03); border:1px solid var(--border);
+             border-radius:10px; cursor:pointer; transition:all .15s; }
+  .ev-item:hover { background:rgba(99,102,241,.07); border-color:rgba(99,102,241,.3); }
+  .ev-item.active { background:rgba(99,102,241,.12); border-color:rgba(99,102,241,.5); }
+  .ev-icon { width:38px; height:38px; border-radius:8px; display:flex;
+             align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+  .ev-name { font-size:13px; font-weight:600; color:var(--text);
+             overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:160px; }
+  .ev-sub  { font-size:11px; color:var(--muted); margin-top:1px; }
+  .ev-score { margin-left:auto; font-size:15px; font-weight:800; flex-shrink:0; }
+  .ev-del { flex-shrink:0; opacity:0; transition:opacity .15s; }
+  .ev-item:hover .ev-del { opacity:1; }
+
+  /* Strengths / weaknesses */
+  .sw-list { display:flex; flex-direction:column; gap:5px; }
+  .sw-item { display:flex; align-items:flex-start; gap:8px; font-size:13px;
+             color:var(--muted); line-height:1.5; }
+  .sw-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; margin-top:6px; }
+
+  /* Progress bar */
+  .prog-bar { height:6px; background:rgba(255,255,255,.07); border-radius:99px; overflow:hidden; }
+  .prog-fill { height:100%; border-radius:99px; background:var(--grad);
+               transition:width 1s cubic-bezier(.4,0,.2,1); }
+
+  /* Spinner */
+  .spinner { width:18px; height:18px; border:2px solid rgba(99,102,241,.2);
+             border-top-color:var(--primary); border-radius:50%;
+             animation:spin .7s linear infinite; display:inline-block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* Toast */
+  .toast-wrap { position:fixed; bottom:20px; right:20px; display:flex;
+                flex-direction:column; gap:8px; z-index:999; }
+  .toast { padding:10px 16px; border-radius:10px; font-size:13px; font-weight:600;
+           animation:toast-in .3s ease; box-shadow:0 8px 24px rgba(0,0,0,.5); }
+  .toast-ok  { background:#10b981; color:#fff; }
+  .toast-err { background:#ef4444; color:#fff; }
+  .toast-info{ background:#6366f1; color:#fff; }
+  @keyframes toast-in { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+
+  /* Result layout */
+  .result-grid { display:grid; grid-template-columns:160px 1fr; gap:20px; align-items:start; }
+  .result-section { display:flex; flex-direction:column; gap:14px; }
+  .section-title { font-size:12px; font-weight:700; color:var(--muted);
+                   text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+
+  /* Empty */
+  .empty { display:flex; flex-direction:column; align-items:center; justify-content:center;
+           padding:40px; text-align:center; gap:10px; }
+  .empty-icon { font-size:40px; opacity:.4; }
+
+  /* Tabs */
+  .tabs { display:flex; gap:3px; background:rgba(255,255,255,.04);
+          border:1px solid var(--border); border-radius:9px; padding:3px; }
+  .tab { padding:6px 14px; border-radius:7px; font-size:12px; font-weight:600;
+         color:var(--muted); cursor:pointer; transition:all .15s; }
+  .tab.active { background:var(--card); color:var(--text); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width:5px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:rgba(99,102,241,.3); border-radius:99px; }
+
+  @media(max-width:800px) {
+    .shell { grid-template-columns:1fr; }
+    .panel-left { position:static; height:auto; }
+    .result-grid { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- ═══════════════ LEFT PANEL ═══════════════ -->
+  <div class="panel-left">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">🔍</div>
+      <div>
+        <h1>AI Phân tích Minh chứng</h1>
+        <small>Module 6 · Test UI · localhost:8997</small>
+      </div>
+    </div>
+
+    <!-- API Status -->
+    <div id="apiStatus" class="status-bar err">
+      <div class="dot"></div>
+      <span>Đang kết nối server...</span>
+    </div>
+
+    <!-- Upload Form -->
+    <div>
+      <h3 style="font-size:13px;color:var(--muted);margin-bottom:12px;
+                 text-transform:uppercase;letter-spacing:.5px;">📤 Tải lên minh chứng</h3>
+
+      <!-- Drop zone -->
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput"
+               accept=".pdf,.docx,.doc,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.bmp,.webp"
+               onchange="onFileSelected(this)" />
+        <div class="drop-icon">📎</div>
+        <div class="drop-label">Kéo thả hoặc click chọn file</div>
+        <div class="drop-sub">PDF · Word · Excel · Hình ảnh · Tối đa 30MB</div>
+        <div class="file-chosen" id="fileChosen" style="display:none"></div>
+      </div>
+
+      <label>Tên nhiệm vụ *</label>
+      <input type="text" id="taskName" placeholder="VD: Báo cáo tổng hợp tháng 6" />
+
+      <label>Mô tả / Yêu cầu</label>
+      <textarea id="taskDesc" placeholder="Mô tả chi tiết yêu cầu của nhiệm vụ..."></textarea>
+
+      <label>Hạn chót</label>
+      <input type="date" id="taskDeadline" />
+
+      <label>Trọng số: <span id="weightDisplay">10</span>%</label>
+      <div class="range-row">
+        <input type="range" id="taskWeight" min="1" max="100" value="10"
+               oninput="document.getElementById('weightDisplay').textContent=this.value" />
+        <div class="range-val" id="weightVal">10%</div>
+      </div>
+
+      <label>Người nộp *</label>
+      <input type="text" id="uploaderName" placeholder="VD: Nguyễn Văn A" />
+
+      <label>Phòng ban</label>
+      <select id="department">
+        <option value="">-- Chọn phòng ban --</option>
+        <option>Văn phòng Sở</option>
+        <option>Phòng Dân tộc</option>
+        <option>Phòng Tôn giáo</option>
+        <option>Thanh tra</option>
+      </select>
+
+      <button class="btn btn-primary btn-full" style="margin-top:16px"
+              id="uploadBtn" onclick="uploadFile()">
+        <span id="uploadBtnIcon">⬆️</span>
+        <span id="uploadBtnText">Tải lên & Phân tích</span>
+      </button>
+    </div>
+
+    <!-- Refresh list -->
+    <button class="btn btn-ghost btn-full" onclick="loadList()">🔄 Làm mới danh sách</button>
+  </div>
+
+  <!-- ═══════════════ RIGHT PANEL ═══════════════ -->
+  <div class="panel-right">
+    <!-- Top bar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:20px;font-weight:800;letter-spacing:-.5px">Kết quả Phân tích AI</h2>
+        <p style="color:var(--muted);font-size:13px;margin-top:3px">
+          Chọn file bên dưới hoặc tải lên file mới để xem kết quả
+        </p>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="showTab('result')">📊 Kết quả</div>
+        <div class="tab" onclick="showTab('list')">📁 Danh sách (<span id="listCount">0</span>)</div>
+      </div>
+    </div>
+
+    <!-- RESULT TAB -->
+    <div id="tabResult">
+      <!-- Waiting state -->
+      <div class="card" id="waitingCard">
+        <div class="card-bd empty">
+          <div class="empty-icon">🤖</div>
+          <h3>Chưa có kết quả</h3>
+          <p style="color:var(--muted)">Tải lên file minh chứng để AI bắt đầu phân tích</p>
+        </div>
+      </div>
+
+      <!-- Analyzing state -->
+      <div class="card" id="analyzingCard" style="display:none">
+        <div class="card-bd empty" style="gap:14px">
+          <div class="spinner" style="width:40px;height:40px;border-width:3px"></div>
+          <div>
+            <h3 id="analyzingFile" style="font-size:15px">Đang phân tích...</h3>
+            <p style="color:var(--muted);margin-top:4px">AI đang đọc tài liệu và đánh giá</p>
+          </div>
+          <div style="width:100%;max-width:300px">
+            <div class="prog-bar"><div class="prog-fill" id="analyzingProg" style="width:0%"></div></div>
+          </div>
+          <p style="color:var(--muted);font-size:12px" id="analyzingStatus">Đang tải lên...</p>
+        </div>
+      </div>
+
+      <!-- Result state -->
+      <div id="resultCard" style="display:none;display:flex;flex-direction:column;gap:16px">
+
+        <!-- Summary row -->
+        <div class="card" style="position:relative;overflow:hidden">
+          <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--grad)"></div>
+          <div class="card-bd" style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">
+            <div class="score-wrap">
+              <div class="score-circle" id="scoreCircle">
+                <svg viewBox="0 0 110 110">
+                  <circle cx="55" cy="55" r="44" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="8"/>
+                  <circle id="scoreArc" cx="55" cy="55" r="44" fill="none"
+                    stroke="#6366f1" stroke-width="8" stroke-linecap="round"
+                    stroke-dasharray="276.5" stroke-dashoffset="276.5"
+                    transform="rotate(-90 55 55)" style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)"/>
+                </svg>
+                <div class="score-inner">
+                  <div class="score-num" id="scoreNum">--</div>
+                  <div class="score-lbl">/ 100</div>
+                </div>
+              </div>
+              <div class="score-tag" id="scoreTag">Đang tải...</div>
+            </div>
+            <div style="flex:1;min-width:200px">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+                <h3 id="resultFilename" style="font-size:16px;font-weight:700">--</h3>
+                <span id="resultStatus" class="badge badge-done">Hoàn thành</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                <span id="resultTask" style="font-size:12px;color:var(--muted)">--</span>
+              </div>
+              <!-- Meta tags -->
+              <div style="display:flex;flex-wrap:wrap;gap:6px" id="resultMeta"></div>
+              <!-- Score bar -->
+              <div style="margin-top:14px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+                  <span style="font-size:11px;color:var(--muted);font-weight:600">Mức độ phù hợp</span>
+                  <span style="font-size:11px;color:var(--text);font-weight:700" id="scoreBarLabel">0%</span>
+                </div>
+                <div class="prog-bar" style="height:8px">
+                  <div class="prog-fill" id="scoreBar" style="width:0%"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Actions -->
+            <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+              <button class="btn btn-ghost btn-sm" id="reAnalyzeBtn" onclick="reAnalyze()">🔄 Phân tích lại</button>
+              <button class="btn btn-danger btn-sm" id="deleteBtn" onclick="deleteEvidence()">🗑 Xóa</button>
+              <a id="downloadLink" href="#" class="btn btn-ghost btn-sm" target="_blank" download>⬇ Tải file</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main result grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+          <!-- Checklist -->
+          <div class="card">
+            <div class="card-hd"><h3>✅ Checklist kiểm tra</h3></div>
+            <div class="card-bd">
+              <div class="checklist" id="checklist"></div>
+            </div>
+          </div>
+
+          <!-- Strengths & Weaknesses -->
+          <div class="card">
+            <div class="card-hd"><h3>💪 Điểm mạnh & Cần cải thiện</h3></div>
+            <div class="card-bd" style="display:flex;flex-direction:column;gap:14px">
+              <div>
+                <div class="section-title" style="color:#34d399">Điểm mạnh</div>
+                <div class="sw-list" id="strengths"></div>
+              </div>
+              <div style="height:1px;background:var(--border)"></div>
+              <div>
+                <div class="section-title" style="color:#fbbf24">Cần cải thiện</div>
+                <div class="sw-list" id="weaknesses"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- AI Comment -->
+        <div class="card">
+          <div class="card-hd"><h3>✦ Nhận xét AI</h3></div>
+          <div class="card-bd">
+            <div class="ai-block">
+              <div class="ai-tag">✦ AI</div>
+              <p id="aiComment">--</p>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:10px;font-size:11px;color:var(--dim);flex-wrap:wrap">
+              <span>🤖 Model: <strong id="modelUsed">--</strong></span>
+              <span>📝 Văn bản: <strong id="extractedLen">--</strong> ký tự</span>
+              <span>🕐 Phân tích: <strong id="analyzedAt">--</strong></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- LIST TAB -->
+    <div id="tabList" style="display:none">
+      <div class="card">
+        <div class="card-hd">
+          <h3>📁 Danh sách minh chứng</h3>
+          <div style="display:flex;gap:6px">
+            <select id="typeFilter" class="btn btn-ghost btn-sm"
+                    style="font-size:11px;padding:4px 8px;border-radius:6px;cursor:pointer"
+                    onchange="loadList()">
+              <option value="">Tất cả loại</option>
+              <option value="pdf">PDF</option>
+              <option value="word">Word</option>
+              <option value="excel">Excel</option>
+              <option value="image">Hình ảnh</option>
+            </select>
+            <select id="statusFilter" class="btn btn-ghost btn-sm"
+                    style="font-size:11px;padding:4px 8px;border-radius:6px;cursor:pointer"
+                    onchange="loadList()">
+              <option value="">Tất cả trạng thái</option>
+              <option value="done">Hoàn thành</option>
+              <option value="pending">Chờ</option>
+              <option value="analyzing">Đang phân tích</option>
+              <option value="error">Lỗi</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-bd">
+          <div class="ev-list" id="evList">
+            <div class="empty"><div class="empty-icon">📂</div><p style="color:var(--muted)">Chưa có file nào</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+const API = 'http://localhost:8997';
+let currentId = null;
+let pollTimer = null;
+let progressTimer = null;
+let fakeProgress = 0;
+
+// ══════════════════════════════════════════
+// Utils
+// ══════════════════════════════════════════
+function toast(msg, type='info') {
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function scoreColor(s) {
+  if (s >= 85) return '#10b981';
+  if (s >= 65) return '#f59e0b';
+  return '#ef4444';
+}
+
+function scoreLabel(s) {
+  if (s >= 90) return '✦ Xuất sắc';
+  if (s >= 80) return '👍 Tốt';
+  if (s >= 65) return '⚠️ Đạt yêu cầu';
+  if (s >= 40) return '🔴 Chưa đạt';
+  return '❌ Không phù hợp';
+}
+
+function fileIcon(type) {
+  const icons = { pdf:'📄', word:'📝', excel:'📊', image:'🖼️', other:'📁' };
+  return icons[type] || '📁';
+}
+
+function fileIconBg(type) {
+  const bgs = {
+    pdf:   'rgba(239,68,68,.12)',
+    word:  'rgba(6,182,212,.12)',
+    excel: 'rgba(16,185,129,.12)',
+    image: 'rgba(99,102,241,.12)',
+    other: 'rgba(148,163,184,.12)',
+  };
+  return bgs[type] || bgs.other;
+}
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+function fmtDate(iso) {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  return d.toLocaleString('vi-VN', { hour12:false, timeZone:'Asia/Ho_Chi_Minh' });
+}
+
+// ══════════════════════════════════════════
+// API Health check
+// ══════════════════════════════════════════
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/api/evidence/health`);
+    const d = await r.json();
+    const el = document.getElementById('apiStatus');
+    if (r.ok) {
+      el.className = 'status-bar ok';
+      el.innerHTML = `<div class="dot"></div><span>Server online · ${d.text_model}</span>`;
+      loadList();
+    } else throw new Error();
+  } catch {
+    const el = document.getElementById('apiStatus');
+    el.className = 'status-bar err';
+    el.innerHTML = `<div class="dot"></div><span>Không kết nối được server</span>`;
+    setTimeout(checkHealth, 3000);
+  }
+}
+
+// ══════════════════════════════════════════
+// File selection
+// ══════════════════════════════════════════
+function onFileSelected(input) {
+  const file = input.files[0];
+  const lbl = document.getElementById('fileChosen');
+  if (file) {
+    lbl.style.display = 'block';
+    lbl.textContent = `✓ ${file.name} (${fmtSize(file.size)})`;
+  } else {
+    lbl.style.display = 'none';
+  }
+}
+
+// Drag & drop
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const fi = document.getElementById('fileInput');
+  if (e.dataTransfer.files.length) {
+    fi.files = e.dataTransfer.files;
+    onFileSelected(fi);
+  }
+});
+
+// Range display sync
+document.getElementById('taskWeight').addEventListener('input', function() {
+  document.getElementById('weightDisplay').textContent = this.value;
+  document.getElementById('weightVal').textContent = this.value + '%';
+});
+
+// ══════════════════════════════════════════
+// Upload
+// ══════════════════════════════════════════
+async function uploadFile() {
+  const fi = document.getElementById('fileInput');
+  const taskName = document.getElementById('taskName').value.trim();
+  const uploaderName = document.getElementById('uploaderName').value.trim();
+
+  if (!fi.files[0]) { toast('Vui lòng chọn file!', 'err'); return; }
+  if (!taskName)    { toast('Vui lòng nhập tên nhiệm vụ!', 'err'); return; }
+  if (!uploaderName){ toast('Vui lòng nhập tên người nộp!', 'err'); return; }
+
+  const btn = document.getElementById('uploadBtn');
+  btn.disabled = true;
+  document.getElementById('uploadBtnIcon').textContent = '';
+  document.getElementById('uploadBtnText').innerHTML = '<span class="spinner"></span> Đang tải lên...';
+
+  const fd = new FormData();
+  fd.append('file', fi.files[0]);
+  fd.append('task_name', taskName);
+  fd.append('task_description', document.getElementById('taskDesc').value);
+  fd.append('task_deadline', document.getElementById('taskDeadline').value
+    ? new Date(document.getElementById('taskDeadline').value).toLocaleDateString('vi-VN') : '');
+  fd.append('task_weight', document.getElementById('taskWeight').value);
+  fd.append('uploader_name', uploaderName);
+  fd.append('department', document.getElementById('department').value);
+
+  try {
+    const r = await fetch(`${API}/api/evidence/upload`, { method:'POST', body:fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Upload thất bại');
+
+    toast(`✅ Upload thành công! ID: ${d.id.slice(0,8)}...`, 'ok');
+    currentId = d.id;
+    showAnalyzing(fi.files[0].name);
+    startPolling(d.id);
+    loadList();
+    showTab('result');
+
+    // Reset form
+    fi.value = '';
+    document.getElementById('fileChosen').style.display = 'none';
+
+  } catch(e) {
+    toast('❌ Lỗi: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('uploadBtnIcon').textContent = '⬆️';
+    document.getElementById('uploadBtnText').textContent = 'Tải lên & Phân tích';
+  }
+}
+
+// ══════════════════════════════════════════
+// Analyzing state UI
+// ══════════════════════════════════════════
+function showAnalyzing(filename) {
+  document.getElementById('waitingCard').style.display = 'none';
+  document.getElementById('resultCard').style.display  = 'none';
+  document.getElementById('analyzingCard').style.display = '';
+  document.getElementById('analyzingFile').textContent = filename;
+  fakeProgress = 0;
+  clearInterval(progressTimer);
+  progressTimer = setInterval(() => {
+    fakeProgress = Math.min(fakeProgress + Math.random() * 8, 85);
+    document.getElementById('analyzingProg').style.width = fakeProgress + '%';
+    const steps = ['Đang tải lên...','Trích xuất nội dung...','Gửi lên OpenRouter AI...','AI đang đọc tài liệu...','Tổng hợp kết quả...'];
+    const idx = Math.floor(fakeProgress / 20);
+    document.getElementById('analyzingStatus').textContent = steps[Math.min(idx, steps.length-1)];
+  }, 600);
+}
+
+// ══════════════════════════════════════════
+// Poll for result
+// ══════════════════════════════════════════
+function startPolling(id) {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try {
+      const r = await fetch(`${API}/api/evidence/${id}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.status === 'done' || d.status === 'error') {
+        clearInterval(pollTimer);
+        clearInterval(progressTimer);
+        document.getElementById('analyzingProg').style.width = '100%';
+        setTimeout(() => showResult(d), 500);
+      }
+    } catch {}
+  }, 2000);
+}
+
+// ══════════════════════════════════════════
+// Show Result
+// ══════════════════════════════════════════
+function showResult(d) {
+  document.getElementById('analyzingCard').style.display = 'none';
+  document.getElementById('waitingCard').style.display = 'none';
+  const rc = document.getElementById('resultCard');
+  rc.style.display = 'flex';
+
+  const a = d.analysis;
+  const score = a ? a.compatibility_score : 0;
+  const color = scoreColor(score);
+
+  // Score circle
+  const circ = 2 * Math.PI * 44;
+  const offset = circ - (score / 100) * circ;
+  document.getElementById('scoreNum').textContent = score;
+  document.getElementById('scoreNum').style.color = color;
+  const arc = document.getElementById('scoreArc');
+  arc.setAttribute('stroke', color);
+  setTimeout(() => arc.setAttribute('stroke-dashoffset', offset.toFixed(1)), 50);
+  document.getElementById('scoreTag').textContent = scoreLabel(score);
+
+  // Header
+  document.getElementById('resultFilename').textContent = d.filename;
+  const statusEl = document.getElementById('resultStatus');
+  statusEl.className = `badge badge-${d.status}`;
+  statusEl.textContent = {done:'✓ Hoàn thành', error:'✗ Lỗi', pending:'⏳ Chờ', analyzing:'⟳ Đang phân tích'}[d.status] || d.status;
+
+  document.getElementById('resultTask').textContent = `📌 ${d.task_name}`;
+
+  // Meta
+  const meta = document.getElementById('resultMeta');
+  meta.innerHTML = [
+    `<span style="font-size:11px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:99px;padding:2px 8px;color:var(--muted)">👤 ${d.uploader_name}</span>`,
+    d.department ? `<span style="font-size:11px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:99px;padding:2px 8px;color:var(--muted)">🏢 ${d.department}</span>` : '',
+    `<span style="font-size:11px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:99px;padding:2px 8px;color:var(--muted)">${fileIcon(d.file_type)} ${d.file_type?.toUpperCase()} · ${fmtSize(d.file_size)}</span>`,
+  ].join('');
+
+  // Score bar
+  document.getElementById('scoreBarLabel').textContent = score + '%';
+  setTimeout(() => {
+    document.getElementById('scoreBar').style.width = score + '%';
+    document.getElementById('scoreBar').style.background =
+      score >= 85 ? 'linear-gradient(90deg,#10b981,#059669)' :
+      score >= 65 ? 'linear-gradient(90deg,#f59e0b,#d97706)' :
+                   'linear-gradient(90deg,#ef4444,#dc2626)';
+  }, 100);
+
+  // Download & delete
+  document.getElementById('downloadLink').href = `${API}/api/evidence/${d.id}/download`;
+  currentId = d.id;
+
+  if (!a) {
+    document.getElementById('checklist').innerHTML = `<p style="color:var(--muted);font-size:13px">
+      ${d.error_message || 'Không có kết quả phân tích'}</p>`;
+    document.getElementById('strengths').innerHTML = '';
+    document.getElementById('weaknesses').innerHTML = '';
+    document.getElementById('aiComment').textContent = d.error_message || '--';
+    document.getElementById('modelUsed').textContent = '--';
+    document.getElementById('extractedLen').textContent = '--';
+    document.getElementById('analyzedAt').textContent = '--';
+    return;
+  }
+
+  // Checklist
+  const cl = document.getElementById('checklist');
+  cl.innerHTML = a.checklist.map(c => `
+    <div class="check-item">
+      <div class="check-icon ${c.met ? 'check-ok' : 'check-no'}">${c.met ? '✓' : '✗'}</div>
+      <div>
+        <div>${c.item}</div>
+        ${c.note ? `<div class="check-note">${c.note}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  // Strengths
+  document.getElementById('strengths').innerHTML = a.strengths.length
+    ? a.strengths.map(s => `
+      <div class="sw-item">
+        <div class="sw-dot" style="background:#10b981"></div>
+        <span>${s}</span>
+      </div>`).join('')
+    : '<p style="color:var(--dim);font-size:12px">Không có điểm mạnh nổi bật</p>';
+
+  // Weaknesses
+  document.getElementById('weaknesses').innerHTML = a.weaknesses.length
+    ? a.weaknesses.map(s => `
+      <div class="sw-item">
+        <div class="sw-dot" style="background:#f59e0b"></div>
+        <span>${s}</span>
+      </div>`).join('')
+    : '<p style="color:var(--dim);font-size:12px">Không có điểm cần cải thiện</p>';
+
+  // AI comment
+  document.getElementById('aiComment').textContent = a.ai_comment;
+  document.getElementById('modelUsed').textContent = a.model_used || '--';
+  document.getElementById('extractedLen').textContent =
+    a.extracted_text_length ? a.extracted_text_length.toLocaleString() : '--';
+  document.getElementById('analyzedAt').textContent = fmtDate(a.analyzed_at);
+}
+
+// ══════════════════════════════════════════
+// Re-analyze & Delete
+// ══════════════════════════════════════════
+async function reAnalyze() {
+  if (!currentId) return;
+  try {
+    const r = await fetch(`${API}/api/evidence/${currentId}/analyze`, { method:'POST' });
+    if (!r.ok) throw new Error('Lỗi kích hoạt phân tích');
+    const d = await fetch(`${API}/api/evidence/${currentId}`).then(r=>r.json());
+    showAnalyzing(d.filename);
+    startPolling(currentId);
+    toast('🔄 Đã kích hoạt phân tích lại!', 'info');
+  } catch(e) { toast('❌ ' + e.message, 'err'); }
+}
+
+async function deleteEvidence() {
+  if (!currentId) return;
+  if (!confirm('Bạn có chắc muốn xóa minh chứng này?')) return;
+  try {
+    const r = await fetch(`${API}/api/evidence/${currentId}`, { method:'DELETE' });
+    if (!r.ok) throw new Error('Lỗi xóa');
+    toast('🗑 Đã xóa!', 'ok');
+    currentId = null;
+    document.getElementById('resultCard').style.display = 'none';
+    document.getElementById('waitingCard').style.display = '';
+    loadList();
+  } catch(e) { toast('❌ ' + e.message, 'err'); }
+}
+
+// ══════════════════════════════════════════
+// List
+// ══════════════════════════════════════════
+async function loadList() {
+  const typeF   = document.getElementById('typeFilter')?.value   || '';
+  const statusF = document.getElementById('statusFilter')?.value || '';
+  let url = `${API}/api/evidence/?`;
+  if (typeF)   url += `file_type_filter=${typeF}&`;
+  if (statusF) url += `status_filter=${statusF}&`;
+
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    document.getElementById('listCount').textContent = d.total;
+    renderList(d.items);
+  } catch { }
+}
+
+function renderList(items) {
+  const el = document.getElementById('evList');
+  if (!items || !items.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📂</div>
+      <p style="color:var(--muted)">Chưa có file nào được tải lên</p></div>`;
+    return;
+  }
+  el.innerHTML = items.map(item => {
+    const score = item.compatibility_score;
+    const sc = score != null ? scoreColor(score) : 'var(--muted)';
+    return `
+    <div class="ev-item ${item.id === currentId ? 'active' : ''}"
+         onclick="loadRecord('${item.id}')">
+      <div class="ev-icon" style="background:${fileIconBg(item.file_type)}">
+        ${fileIcon(item.file_type)}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="ev-name" title="${item.filename}">${item.filename}</div>
+        <div class="ev-sub">${item.uploader_name} · ${fmtDate(item.uploaded_at).split(',')[0]}</div>
+      </div>
+      <span class="badge badge-${item.status}"
+            style="font-size:10px;flex-shrink:0">
+        ${item.status === 'done' ? 'Xong' : item.status === 'analyzing' ? '...' : item.status === 'error' ? 'Lỗi' : 'Chờ'}
+      </span>
+      <div class="ev-score" style="color:${sc}">
+        ${score != null ? score : '--'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadRecord(id) {
+  currentId = id;
+  showTab('result');
+  try {
+    const r = await fetch(`${API}/api/evidence/${id}`);
+    const d = await r.json();
+    if (d.status === 'done' || d.status === 'error') {
+      showResult(d);
+    } else {
+      showAnalyzing(d.filename);
+      startPolling(id);
+    }
+    // Re-render list to update active state
+    const lr = await fetch(`${API}/api/evidence/`);
+    const ld = await lr.json();
+    renderList(ld.items);
+  } catch(e) { toast('❌ Lỗi tải dữ liệu', 'err'); }
+}
+
+// ══════════════════════════════════════════
+// Tabs
+// ══════════════════════════════════════════
+function showTab(name) {
+  document.getElementById('tabResult').style.display = name === 'result' ? '' : 'none';
+  document.getElementById('tabList').style.display   = name === 'list'   ? '' : 'none';
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', (i===0 && name==='result') || (i===1 && name==='list'));
+  });
+  if (name === 'list') loadList();
+}
+
+// ══════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════
+checkHealth();
+setInterval(loadList, 10000); // Auto refresh list every 10s
+</script>
+</body>
+</html>
