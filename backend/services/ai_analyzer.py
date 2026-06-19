@@ -103,6 +103,134 @@ Số trang/sheets: {page_count}
 Hãy đánh giá tài liệu trên và trả về JSON theo đúng schema đã quy định."""
 
 
+# ── Phase 1: Sinh checklist từ yêu cầu (KHÔNG xem tài liệu) ────────────────
+_P1_SYSTEM = """Bạn là chuyên gia phân tích yêu cầu nhiệm vụ trong hệ thống KPI nhà nước Việt Nam.
+Nhiệm vụ của bạn: đọc Tên nhiệm vụ + Mô tả/Yêu cầu và sinh ra danh sách tiêu chí kiểm tra.
+
+QUY TẮC BẮT BUỘC:
+1. Mỗi tiêu chí phải bóc tách TRỰC TIẾP từ 1 yêu cầu trong Mô tả nhiệm vụ. Không được tự thêm.
+2. Số tiêu chí = số yêu cầu rõ ràng trong Mô tả nhiệm vụ (1-đối-1).
+3. Nếu Mô tả là đoạn văn, hãy tách từng ý/điều kiện thành 1 tiêu chí riêng.
+4. Mỗi tiêu chí gồm: item (tên), importance (core/minor), deduction (30-40 cho core, 10-15 cho minor).
+
+Chỉ trả về JSON, không giải thích:
+{"checklist": [{"item": "...", "importance": "core|minor", "deduction": <int>}]}"""
+
+_P1_USER = """Tên nhiệm vụ: {task_name}
+Mô tả / Yêu cầu: {task_description}
+
+Hãy sinh danh sách tiêu chí kiểm tra từ các yêu cầu trên."""
+
+
+# ── Phase 2: Đối chiếu checklist với tài liệu ───────────────────────────────
+_P2_SYSTEM = """Bạn là AI thẩm định tài liệu minh chứng KPI.
+Bạn nhận được một danh sách tiêu chí kiểm tra (do hệ thống sinh ra từ yêu cầu nhiệm vụ) và nội dung tài liệu.
+Nhiệm vụ: kiểm tra từng tiêu chí xem tài liệu có đáp ứng không.
+
+QUY TẮC BẮT BUỘC:
+1. KHÔNG ĐƯỢC thêm, bớt, hay sửa tên tiêu chí — chỉ điền met/note cho mỗi item được cung cấp.
+2. Khi viết note: PHẢI trích dẫn trực tiếp từ tài liệu. Nếu không tìm thấy → "Không tìm thấy trong tài liệu".
+3. NGHIÊM CẤM bịa ra thông tin không có trong văn bản.
+4. compatibility_score = 100 - tổng deduction của các item met=false (tối thiểu 0).
+5. Nếu tất cả item core đều met=false → score = 0.
+
+Trả về JSON:
+{
+  "compatibility_score": <int 0-100>,
+  "checklist": [
+    {"item": "<giữ nguyên tên item>", "met": <true|false>, "note": "<trích dẫn từ văn bản>", "deduction": <int>, "importance": "<core|minor>"}
+  ],
+  "ai_comment": "<2-4 câu, chỉ rõ tiêu chí nào không đạt và điểm trừ>",
+  "strengths": ["..."],
+  "weaknesses": ["..."]
+}"""
+
+_P2_USER = """=== DANH SÁCH TIÊU CHÍ CẦN KIỂM TRA ===
+{checklist_section}
+
+=== THÔNG TIN BỔ SUNG ===
+Người thực hiện: {uploader_name} | Phòng ban: {department} | Hạn chót: {task_deadline}
+
+=== NỘI DUNG TÀI LIỆU MINH CHỨNG ===
+Tên file: {filename} | Loại: {file_type} | Số trang: {page_count}
+
+{content_section}
+
+=== YÊU CẦU ===
+Kiểm tra từng tiêu chí trên so với nội dung tài liệu và trả về JSON."""
+
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Requirement Extractor – bóc tách đoạn văn mô tả thành danh sách
+# ══════════════════════════════════════════════════════════════════════
+
+def _extract_requirements(task_description: str) -> list[str]:
+    """
+    Bóc tách mô tả nhiệm vụ (có thể là đoạn văn hoặc danh sách) thành
+    danh sách các yêu cầu riêng biệt.
+
+    Thứ tự ưu tiên:
+      1. Danh sách đánh số  (1. / (1) / 1) )
+      2. Gạch đầu dòng      (- / * / • )
+      3. Dấu chấm phẩy      ( ; )
+      4. Dấu phẩy + động từ chỉ yêu cầu tiếng Việt
+         (có, đạt, bao gồm, phải, cần, gồm, kèm, đính kèm, thể hiện, đảm bảo)
+      5. Xuống dòng thông thường
+      6. Trả nguyên đoạn văn nếu không tách được
+    """
+    text = task_description.strip()
+    if not text:
+        return []
+
+    # 1. Danh sách đánh số
+    numbered = re.split(r'(?<!\d)(?:\d+[.)]\s+|\(\d+\)\s+)', text)
+    numbered = [r.strip().rstrip(';,') for r in numbered if r.strip()]
+    if len(numbered) >= 2:
+        logger.debug("Requirements extracted by numbered list: %d items", len(numbered))
+        return numbered
+
+    # 2. Gạch đầu dòng
+    bulleted = re.split(r'(?:^|\n)\s*[-*•]\s+', text)
+    bulleted = [r.strip().rstrip(';,') for r in bulleted if r.strip()]
+    if len(bulleted) >= 2:
+        logger.debug("Requirements extracted by bullets: %d items", len(bulleted))
+        return bulleted
+
+    # 3. Dấu chấm phẩy
+    by_semicolon = [r.strip() for r in text.split(';') if r.strip()]
+    if len(by_semicolon) >= 2:
+        logger.debug("Requirements extracted by semicolon: %d items", len(by_semicolon))
+        return by_semicolon
+
+    # 4. Dấu phẩy + động từ chỉ yêu cầu (Vietnamese conjunctions)
+    VN_REQ_STARTERS = (
+        r'có |đạt |bao gồm |phải |cần |gồm |kèm |đính kèm |'
+        r'thể hiện |đảm bảo |xác nhận |chứng minh |ghi rõ |nêu rõ '
+    )
+    by_comma = re.split(rf',\s*(?={VN_REQ_STARTERS})', text, flags=re.IGNORECASE)
+    by_comma = [r.strip().rstrip(',') for r in by_comma if r.strip()]
+    if len(by_comma) >= 2:
+        logger.debug("Requirements extracted by comma+verb: %d items", len(by_comma))
+        return by_comma
+
+    # 5. Xuống dòng thông thường
+    by_newline = [r.strip() for r in text.splitlines() if r.strip()]
+    if len(by_newline) >= 2:
+        logger.debug("Requirements extracted by newline: %d items", len(by_newline))
+        return by_newline
+
+    # 6. Không tách được – trả nguyên
+    return [text]
+
+
+def _format_requirements(requirements: list[str]) -> str:
+    """Định dạng danh sách yêu cầu thành chuỗi đánh số để đưa vào prompt."""
+    if len(requirements) == 1:
+        return requirements[0]
+    return "\n".join(f"({i + 1}) {req}" for i, req in enumerate(requirements))
+
+
 def _build_text_prompt(
     task_name: str,
     task_description: str,
@@ -114,7 +242,19 @@ def _build_text_prompt(
     file_type: str,
     page_count: int,
     extracted_text: str,
-) -> str:
+) -> tuple[str, list[str]]:
+    """Xây dựng user prompt và trả về (prompt_str, requirements_list)."""
+    # Bóc tách mô tả nhiệm vụ thành danh sách yêu cầu có đánh số
+    requirements = _extract_requirements(task_description)
+    formatted_description = _format_requirements(requirements)
+
+    req_count_note = ""
+    if len(requirements) > 1:
+        req_count_note = (
+            f"\n[Hệ thống đã bóc tách thành {len(requirements)} yêu cầu riêng biệt ở trên."
+            f" Checklist phải có ĐÚNG {len(requirements)} item tương ứng.]"
+        )
+
     # Giới hạn text để không vượt context window (max ~8000 ký tự)
     trimmed = extracted_text[:8000]
     if len(extracted_text) > 8000:
@@ -122,9 +262,9 @@ def _build_text_prompt(
 
     content_section = f"Nội dung trích xuất:\n{trimmed}"
 
-    return _USER_PROMPT_TEMPLATE.format(
+    prompt = _USER_PROMPT_TEMPLATE.format(
         task_name=task_name,
-        task_description=task_description or "(không có mô tả)",
+        task_description=formatted_description + req_count_note,
         task_deadline=task_deadline or "(chưa đặt)",
         task_weight=task_weight,
         uploader_name=uploader_name,
@@ -134,6 +274,7 @@ def _build_text_prompt(
         page_count=page_count,
         content_section=content_section,
     )
+    return prompt, requirements
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -219,10 +360,12 @@ def _parse_ai_response(
     extracted_len: int,
     task_name: str = "",
     task_description: str = "",
+    requirements: list[str] | None = None,
 ) -> AnalysisResult:
     """
     Parse JSON từ response AI.
     Xử lý trường hợp AI trả về markdown code block hoặc JSON bị wrap.
+    requirements: danh sách yêu cầu đã được bóc tách (dùng để validate checklist).
     """
     # Bỏ markdown code block nếu có
     cleaned = re.sub(r"```(?:json)?\s*", "", raw).strip().strip("`").strip()
@@ -294,25 +437,55 @@ def _parse_ai_response(
                 )
             )
 
-    # Lọc bỏ các tiêu chí hình thức do AI tự bịa ra nếu yêu cầu nhiệm vụ không đề cập
-    task_requirements_text = f"{task_name} {task_description}".lower()
+    # ══ Sanitizer: lọc checklist item không xuất phát từ yêu cầu nhiệm vụ ══
+    # Chiến lược: dùng keyword overlap với danh sách requirements đã bóc tách.
+    # Nếu item không có từ khóa nào khớp với BẤT KỲ requirement nào → drop.
+
+    # Stop-words tiếng Việt phổ biến không mang ý nghĩa phân biệt
+    _STOP = {
+        "tài", "liệu", "có", "và", "là", "của", "trong", "về", "cho", "với",
+        "được", "theo", "đầy", "đủ", "thông", "tin", "các", "một", "khi", "hoặc",
+        "nếu", "này", "đúng", "hợp", "lệ", "phù", "hợp", "rõ", "ràng", "đã",
+        "chưa", "bị", "được", "phải", "cần", "nên", "không", "kết", "quả",
+    }
+
+    def _kw(text: str) -> set[str]:
+        return {t for t in re.findall(r'\w{3,}', text.lower()) if t not in _STOP}
+
+    # Gộp tất cả từ khóa từ task_name + từng requirement
+    req_pool = list(requirements) if requirements else []
+    if task_name:
+        req_pool.insert(0, task_name)
+
+    all_req_keywords: list[set[str]] = [_kw(r) for r in req_pool]
+    all_req_kw_union = set().union(*all_req_keywords) if all_req_keywords else set()
+
     sanitized_checklist = []
     for it in checklist:
-        it_text_lower = it.item.lower()
+        item_kw = _kw(it.item)
 
-        # 1. Kiểm tra tiêu chí về tên file
-        if ("tên file" in it_text_lower or "tên tệp" in it_text_lower) and ("tên file" not in task_requirements_text and "tên tệp" not in task_requirements_text):
-            logger.info("Dropping hallucinated checklist item (file name): %s", it.item)
-            continue
+        # Nếu có danh sách requirements cụ thể (>= 2 items đã bóc tách)
+        # → item phải overlap với ÍT NHẤT 1 requirement
+        if len(req_pool) >= 2 and all_req_keywords:
+            matches_any = any(
+                bool(item_kw & req_kw)
+                for req_kw in all_req_keywords
+            )
+            if not matches_any:
+                logger.info(
+                    "Dropping checklist item (no overlap with any requirement): %s",
+                    it.item,
+                )
+                continue
 
-        # 2. Kiểm tra tiêu chí về định dạng file
-        if ("định dạng" in it_text_lower or "loại file" in it_text_lower) and ("định dạng" not in task_requirements_text and "loại file" not in task_requirements_text and "excel" not in task_requirements_text and "pdf" not in task_requirements_text and "word" not in task_requirements_text):
-            logger.info("Dropping hallucinated checklist item (file format): %s", it.item)
-            continue
-
-        # 3. Kiểm tra tiêu chí về số trang / số sheets
-        if ("số trang" in it_text_lower or "số lượng trang" in it_text_lower or "số sheet" in it_text_lower) and ("số trang" not in task_requirements_text and "số lượng trang" not in task_requirements_text and "số sheet" not in task_requirements_text):
-            logger.info("Dropping hallucinated checklist item (page count): %s", it.item)
+        # Nếu chỉ có 1 requirement hoặc không bóc tách được
+        # → dùng union để kiểm tra overlap tổng thể
+        elif all_req_kw_union and not (item_kw & all_req_kw_union):
+            # Cũng drop nếu hoàn toàn không liên quan gì đến yêu cầu
+            logger.info(
+                "Dropping checklist item (no keyword overlap with task): %s",
+                it.item,
+            )
             continue
 
         sanitized_checklist.append(it)
@@ -438,10 +611,11 @@ async def analyze(
             model = settings.vision_model if (is_image and image_b64) else settings.text_model
 
         if is_image and image_b64:
-            # ── Vision branch ─────────────────────────────────────────
+            # ── Vision branch: vẫn dùng single-pass (ảnh không tách được) ──
+            requirements = _extract_requirements(task_description)
             user_text = _USER_PROMPT_TEMPLATE.format(
                 task_name=task_name,
-                task_description=task_description or "(không có mô tả)",
+                task_description=_format_requirements(requirements),
                 task_deadline=task_deadline or "(chưa đặt)",
                 task_weight=task_weight,
                 uploader_name=uploader_name,
@@ -451,55 +625,93 @@ async def analyze(
                 page_count=page_count,
                 content_section="[Hình ảnh đính kèm bên dưới – hãy phân tích nội dung từ ảnh]",
             )
-
             messages = [
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {
                     "role": "user",
                     "content": [
                         {"type": "text", "text": user_text},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": image_b64},
-                        },
+                        {"type": "image_url", "image_url": {"url": image_b64}},
                     ],
                 },
             ]
-
             logger.info("Calling vision model %s for image file: %s", model, filename)
             raw = await _call_ai_api(model=model, messages=messages)
 
-        else:
-            # ── Text branch ───────────────────────────────────────────
-            user_text = _build_text_prompt(
-                task_name=task_name,
-                task_description=task_description,
-                task_deadline=task_deadline,
-                task_weight=task_weight,
-                uploader_name=uploader_name,
-                department=department,
-                filename=filename,
-                file_type=file_type,
-                page_count=page_count,
-                extracted_text=extracted_text,
+            result = _parse_ai_response(
+                raw=raw, model_used=model, extracted_len=len(extracted_text),
+                task_name=task_name, task_description=task_description,
+                requirements=requirements,
             )
 
-            messages = [
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": user_text},
+        else:
+            # ── Text branch: Two-Phase Analysis ──────────────────────────
+            # Phase 1: sinh checklist từ yêu cầu (không thấy tài liệu)
+            logger.info("[Phase 1] Building checklist from requirements for: %s", filename)
+            p1_user = _P1_USER.format(
+                task_name=task_name,
+                task_description=task_description or "(không có mô tả)",
+            )
+            p1_messages = [
+                {"role": "system", "content": _P1_SYSTEM},
+                {"role": "user", "content": p1_user},
             ]
+            p1_raw = await _call_ai_api(model=model, messages=p1_messages, timeout=30.0)
 
-            logger.info("Calling text model %s for file: %s", model, filename)
-            raw = await _call_ai_api(model=model, messages=messages)
+            # Parse checklist Phase 1
+            try:
+                p1_cleaned = re.sub(r"```(?:json)?\s*", "", p1_raw).strip().strip("`").strip()
+                p1_data = json.loads(p1_cleaned)
+                p1_items = p1_data.get("checklist", [])
+            except (json.JSONDecodeError, ValueError):
+                logger.warning("Phase 1 JSON parse failed, falling back to regex extraction")
+                p1_items = []
 
-        # Parse kết quả
-        result = _parse_ai_response(
-            raw=raw,
-            model_used=model,
-            extracted_len=len(extracted_text),
-            task_name=task_name,
-            task_description=task_description,
-        )
+            # Fallback: nếu Phase 1 thất bại, dùng _extract_requirements
+            requirements = _extract_requirements(task_description)
+            if not p1_items:
+                p1_items = [
+                    {"item": req, "importance": "core", "deduction": 30}
+                    for req in requirements
+                ]
+
+            logger.info("[Phase 1] Generated %d checklist items", len(p1_items))
+
+            # Định dạng checklist cho Phase 2
+            checklist_section = "\n".join(
+                f"({i+1}) [{item.get('importance','core').upper()}] {item.get('item','')} "
+                f"(trừ {item.get('deduction',30)} điểm nếu không đạt)"
+                for i, item in enumerate(p1_items)
+            )
+
+            # Phase 2: đối chiếu checklist với tài liệu
+            logger.info("[Phase 2] Verifying checklist against document: %s", filename)
+            trimmed_text = extracted_text[:8000]
+            if len(extracted_text) > 8000:
+                trimmed_text += "\n\n[... nội dung bị cắt bớt ...]"
+
+            p2_user = _P2_USER.format(
+                checklist_section=checklist_section,
+                uploader_name=uploader_name,
+                department=department or "(chưa rõ)",
+                task_deadline=task_deadline or "(chưa đặt)",
+                filename=filename,
+                file_type=file_type.upper(),
+                page_count=page_count,
+                content_section=f"Nội dung trích xuất:\n{trimmed_text}",
+            )
+            p2_messages = [
+                {"role": "system", "content": _P2_SYSTEM},
+                {"role": "user", "content": p2_user},
+            ]
+            raw = await _call_ai_api(model=model, messages=p2_messages)
+
+            result = _parse_ai_response(
+                raw=raw, model_used=model, extracted_len=len(extracted_text),
+                task_name=task_name, task_description=task_description,
+                requirements=[item.get("item", "") for item in p1_items],
+            )
+
         logger.info(
             "Analysis done for %s: score=%d, checklist=%d items",
             filename, result.compatibility_score, len(result.checklist),
