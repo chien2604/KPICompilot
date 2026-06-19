@@ -93,3 +93,59 @@ Tài liệu này tổng hợp toàn bộ các trường hợp kiểm thử (test
     *(Nếu tăng số yêu cầu phụ bị sai lên 11 mục: $100 - 110 = -10 \rightarrow \max(0, -10) = 0$ điểm)*
 *   **Kết quả kỳ vọng:**
     *   **Điểm số:** `0` (hoặc điểm tương ứng theo số lượng tiêu chí phụ không đạt, không bao giờ hiển thị điểm âm).
+
+---
+
+## ⚙️ Logic Xử Lý & Tính Toán Chi Tiết Ở Backend
+
+Dưới đây là mã nguồn/thuật toán logic cụ thể được lập trình tại Backend giúp bạn hiểu rõ cách thức hệ thống xử lý tính điểm và chuẩn hóa dữ liệu:
+
+### 1. Phân loại và Ràng buộc Chặn dưới của Tiêu chí
+Để tránh trường hợp AI chấm điểm tùy tiện (ví dụ: đánh dấu tiêu chí cốt lõi nhưng chỉ trừ 5 điểm, hoặc tiêu chí phụ nhưng trừ tận 50 điểm), Backend áp dụng bộ quy chuẩn bắt buộc:
+*   **Phân loại tự động:** 
+    *   Nếu AI trả về `importance: "core"` hoặc `deduction >= 30` $\rightarrow$ Hệ thống xác định đó là tiêu chí **Cốt lõi (Core)**.
+    *   Các trường hợp còn lại $\rightarrow$ Tiêu chí **Phụ (Minor)**.
+*   **Ràng buộc điểm trừ tối thiểu:**
+    *   Đối với tiêu chí **Core**: Điểm trừ tối thiểu khi không đạt bắt buộc là **30 điểm**.
+    *   Đối với tiêu chí **Minor**: Điểm trừ tối thiểu khi không đạt bắt buộc là **10 điểm**.
+*   **Dự phòng điểm trừ (Fallback):**
+    *   Nếu một tiêu chí bị đánh dấu là Không đạt (`met: false`) nhưng điểm trừ trả về bằng 0 hoặc không hợp lệ, hệ thống sẽ quét chuỗi nhận xét để tìm cụm từ chỉ điểm trừ (ví dụ: *"trừ 15"*). Nếu không tìm thấy, hệ thống tự động gán điểm trừ mặc định là **20 điểm**.
+
+---
+
+### 2. Bộ lọc chống ảo giác (Keyword Sanitizer)
+Thuật toán so khớp từ khóa được chạy ngay sau khi AI trả về kết quả để loại bỏ các tiêu chí "tự bịa":
+1.  **Loại bỏ Stop-words:** Hệ thống loại bỏ các từ dừng tiếng Việt không mang ý nghĩa phân biệt (ví dụ: *tài liệu, có, và, là, của, trong, về, cho, với, được, theo, đầy đủ...*).
+2.  **Tách Từ Khóa Yêu Cầu (Requirements Pool):** Lấy toàn bộ từ khóa từ Tên nhiệm vụ và danh sách yêu cầu thô đã được tách ở Phase 1.
+3.  **Kiểm tra Overlap (Giao thoa từ khóa):** 
+    *   Với mỗi mục checklist AI trả về, hệ thống tách tập từ khóa của mục đó.
+    *   Nếu mục checklist **không trùng bất kỳ từ khóa nào** với danh sách yêu cầu của nhiệm vụ $\rightarrow$ Mục đó sẽ bị **loại bỏ (dropped)** ngay lập tức.
+
+---
+
+### 3. Thuật toán Tính điểm Lập trình tại Backend
+Backend tự động tính điểm độc lập thông qua đoạn mã Python sau:
+
+```python
+# Tính tổng điểm trừ của các tiêu chí không đạt (met = False)
+total_deductions = sum(it.deduction for it in checklist if not it.met)
+
+# Kiểm tra điều kiện hạ điểm về 0
+all_failed = all(not it.met for it in checklist)
+core_items = [it for it in checklist if it.importance == "core" or it.deduction >= 30]
+all_core_failed = all(not it.met for it in core_items) if core_items else False
+
+# Xác định điểm số cuối cùng
+if all_failed or all_core_failed:
+    score = 0
+else:
+    score = max(0, 100 - total_deductions)
+```
+
+---
+
+### 4. Logic Đồng bộ hóa Nhận xét AI (AI Comment Sync)
+Sau khi có điểm số chính xác từ Backend, hệ thống tiến hành đồng bộ chuỗi văn bản nhận xét `ai_comment` từ AI để tránh mâu thuẫn số liệu:
+*   **Đồng bộ điểm tổng:** Sử dụng biểu thức chính quy (Regex) để tìm các cụm từ như `đạt 85 điểm` hoặc `đạt 85%` trong `ai_comment` và thay thế chúng thành con số điểm chính xác vừa tính được (ví dụ: `đạt 90 điểm`).
+*   **Đồng bộ điểm trừ đơn lẻ:** Nếu cả checklist chỉ có duy nhất 1 tiêu chí không đạt, hệ thống sẽ tự động đồng bộ điểm trừ nêu trong bình luận (ví dụ: `bị trừ 10 điểm`) trùng khớp với số điểm trừ thực tế của tiêu chí đó.
+
