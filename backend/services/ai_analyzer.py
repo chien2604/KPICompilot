@@ -88,7 +88,6 @@ _USER_PROMPT_TEMPLATE = """=== THÔNG TIN NHIỆM VỤ ===
 Tên nhiệm vụ: {task_name}
 Mô tả / Yêu cầu: {task_description}
 Hạn chót: {task_deadline}
-Trọng số: {task_weight}%
 Người thực hiện: {uploader_name}
 Phòng ban: {department}
 
@@ -235,7 +234,6 @@ def _build_text_prompt(
     task_name: str,
     task_description: str,
     task_deadline: str,
-    task_weight: int,
     uploader_name: str,
     department: str,
     filename: str,
@@ -266,7 +264,6 @@ def _build_text_prompt(
         task_name=task_name,
         task_description=formatted_description + req_count_note,
         task_deadline=task_deadline or "(chưa đặt)",
-        task_weight=task_weight,
         uploader_name=uploader_name,
         department=department or "(chưa rõ)",
         filename=filename,
@@ -586,7 +583,6 @@ async def analyze(
     task_name: str,
     task_description: str,
     task_deadline: str,
-    task_weight: int,
     uploader_name: str,
     department: str,
 ) -> AnalysisResult:
@@ -617,7 +613,6 @@ async def analyze(
                 task_name=task_name,
                 task_description=_format_requirements(requirements),
                 task_deadline=task_deadline or "(chưa đặt)",
-                task_weight=task_weight,
                 uploader_name=uploader_name,
                 department=department or "(chưa rõ)",
                 filename=filename,

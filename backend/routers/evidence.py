@@ -93,7 +93,6 @@ async def _run_analysis(record_id: str) -> None:
             task_name=record.task_name,
             task_description=record.task_description,
             task_deadline=record.task_deadline,
-            task_weight=record.task_weight,
             uploader_name=record.uploader_name,
             department=record.department,
         )
@@ -177,7 +176,6 @@ async def upload_evidence(
     task_name: str = Form(..., description="Tên nhiệm vụ cần minh chứng"),
     task_description: str = Form("", description="Mô tả / yêu cầu chi tiết của nhiệm vụ"),
     task_deadline: str = Form("", description="Hạn chót (dd/MM/yyyy)"),
-    task_weight: int = Form(10, ge=1, le=100, description="Trọng số nhiệm vụ (%)"),
     uploader_name: str = Form(..., description="Tên cán bộ nộp minh chứng"),
     department: str = Form("", description="Phòng ban"),
 ):
@@ -201,7 +199,6 @@ async def upload_evidence(
         task_name=task_name,
         task_description=task_description,
         task_deadline=task_deadline,
-        task_weight=task_weight,
         uploader_name=uploader_name,
         department=department,
     )

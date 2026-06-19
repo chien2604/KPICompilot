@@ -130,7 +130,6 @@ async def create_record(
     task_name: str,
     task_description: str,
     task_deadline: str,
-    task_weight: int,
     uploader_name: str,
     department: str,
 ) -> EvidenceRecord:
@@ -145,7 +144,6 @@ async def create_record(
         task_name=task_name,
         task_description=task_description,
         task_deadline=task_deadline,
-        task_weight=task_weight,
         uploader_name=uploader_name,
         department=department,
         status=AnalysisStatus.PENDING,

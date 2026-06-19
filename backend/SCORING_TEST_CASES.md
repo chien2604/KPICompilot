@@ -12,7 +12,6 @@ Khi người dùng thực hiện nộp tài liệu minh chứng cho một nhiệ
 *   Tên nhiệm vụ: Tên gọi của nhiệm vụ cần đánh giá.
 *   Mô tả nhiệm vụ: Đoạn văn mô tả chi tiết các yêu cầu mà tài liệu minh chứng cần đáp ứng.
 *   Hạn chót: Ngày giới hạn hoàn thành nhiệm vụ.
-*   Trọng số nhiệm vụ: Tỷ lệ phần trăm đóng góp của nhiệm vụ vào tổng điểm KPI.
 *   Người thực hiện: Họ tên cán bộ nộp tài liệu minh chứng.
 *   Phòng ban: Đơn vị công tác của cán bộ.
 

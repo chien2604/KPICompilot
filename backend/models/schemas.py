@@ -113,7 +113,6 @@ class EvidenceRecord(BaseModel):
     task_name: str = Field(..., description="Tên nhiệm vụ cần minh chứng")
     task_description: str = Field("", description="Mô tả chi tiết nhiệm vụ / yêu cầu")
     task_deadline: str = Field("", description="Hạn chót nhiệm vụ")
-    task_weight: int = Field(10, ge=1, le=100, description="Trọng số nhiệm vụ (%)")
 
     # Người nộp
     uploader_name: str = Field(..., description="Tên cán bộ nộp minh chứng")
