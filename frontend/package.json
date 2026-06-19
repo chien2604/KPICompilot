@@ -1,0 +1,23 @@
+{
+  "name": "ai-kpi-copilot-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.5.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "antd": "^5.22.7",
+    "axios": "^1.7.9",
+    "vite": "^6.0.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "6.30.4",
+    "recharts": "^2.15.0"
+  },
+  "devDependencies": {}
+}
