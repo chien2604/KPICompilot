@@ -3,6 +3,7 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { kpiApi } from '../api/kpiApi';
+import { riskLevelLabel } from '../utils/formatters';
 
 export default function KpiEvaluationPage() {
   const { userId } = useParams();
@@ -26,9 +27,9 @@ export default function KpiEvaluationPage() {
         <Descriptions column={2}>
           <Descriptions.Item label="Điểm tổng"><Progress type="circle" percent={Math.round(score?.total_score || 0)} /></Descriptions.Item>
           <Descriptions.Item label="Xếp loại">{score?.classification}</Descriptions.Item>
-          <Descriptions.Item label="Mức rủi ro">{score?.risk_level}</Descriptions.Item>
+          <Descriptions.Item label="Mức rủi ro">{riskLevelLabel[score?.risk_level] || score?.risk_level}</Descriptions.Item>
           <Descriptions.Item label="Kỳ">{score?.period_month}</Descriptions.Item>
-          <Descriptions.Item label="AI giải thích" span={2}>{score?.ai_explanation}</Descriptions.Item>
+          <Descriptions.Item label="AI giải thích" span={2}><div style={{ whiteSpace: 'pre-wrap' }}>{score?.ai_explanation}</div></Descriptions.Item>
         </Descriptions>
       </Card>
       <Card title="Breakdown Rule Engine">

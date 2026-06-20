@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { kpiApi } from '../api/kpiApi';
 import TaskTable from '../components/TaskTable';
+import { kpiTemplateLabel, riskLevelLabel, roleLabel } from '../utils/formatters';
 
 export default function EmployeeProfilePage() {
   const { userId } = useParams();
@@ -27,11 +28,11 @@ export default function EmployeeProfilePage() {
           <Card title="Thông tin KPI">
             <Descriptions column={2}>
               <Descriptions.Item label="Email">{profile.user.email}</Descriptions.Item>
-              <Descriptions.Item label="Vai trò">{profile.user.role}</Descriptions.Item>
-              <Descriptions.Item label="Template">{profile.user.kpi_role_template}</Descriptions.Item>
+              <Descriptions.Item label="Vai trò">{roleLabel[profile.user.role] || profile.user.role}</Descriptions.Item>
+              <Descriptions.Item label="Mẫu KPI">{kpiTemplateLabel[profile.user.kpi_role_template] || profile.user.kpi_role_template}</Descriptions.Item>
               <Descriptions.Item label="Điểm">{profile.score?.total_score || '-'}</Descriptions.Item>
               <Descriptions.Item label="Xếp loại">{profile.score?.classification || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Rủi ro">{profile.score?.risk_level || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Rủi ro">{riskLevelLabel[profile.score?.risk_level] || profile.score?.risk_level || '-'}</Descriptions.Item>
             </Descriptions>
           </Card>
         </Col>

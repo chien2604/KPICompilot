@@ -8,10 +8,32 @@ import TaskTable from '../components/TaskTable';
 export default function TasksPage() {
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
   const load = () => taskApi.list().then(setTasks);
-  useEffect(() => { load(); userApi.list().then(setUsers); }, []);
+  useEffect(() => {
+    load();
+    Promise.all([userApi.list(), userApi.departments()]).then(([userRows, departmentRows]) => {
+      setUsers(userRows);
+      setDepartments(departmentRows);
+    });
+  }, []);
+
+  const assignedUserOptions = [
+    ...departments.map((department) => ({
+      label: department.name,
+      options: users
+        .filter((user) => user.department_id === department.id)
+        .map((user) => ({ value: user.id, label: `${user.full_name} - ${user.position_title}` })),
+    })).filter((group) => group.options.length > 0),
+    {
+      label: 'Chưa phân phòng',
+      options: users
+        .filter((user) => !departments.some((department) => department.id === user.department_id))
+        .map((user) => ({ value: user.id, label: `${user.full_name} - ${user.position_title}` })),
+    },
+  ].filter((group) => group.options.length > 0);
 
   const createTask = async () => {
     const values = await form.validateFields();
@@ -39,7 +61,9 @@ export default function TasksPage() {
           <Form.Item name="title" label="Tên nhiệm vụ" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="description" label="Mô tả"><Input.TextArea rows={3} /></Form.Item>
           <Form.Item name="document_type" label="Nhóm văn bản"><Select options={['A', 'B', 'C', 'D'].map((v) => ({ value: v, label: v }))} /></Form.Item>
-          <Form.Item name="assigned_user_ids" label="Giao cho"><Select mode="multiple" options={users.map((u) => ({ value: u.id, label: u.full_name }))} /></Form.Item>
+          <Form.Item name="assigned_user_ids" label="Giao cho">
+            <Select mode="multiple" showSearch optionFilterProp="label" options={assignedUserOptions} />
+          </Form.Item>
         </Form>
       </Modal>
     </Space>

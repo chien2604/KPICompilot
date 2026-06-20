@@ -1,7 +1,7 @@
 import { apiClient } from './client';
 
 export const evidenceApi = {
-  list: () => apiClient.get('/evidences').then((res) => res.data),
+  list: (params) => apiClient.get('/evidences', { params }).then((res) => res.data),
   get: (id) => apiClient.get(`/evidences/${id}`).then((res) => res.data),
   analysis: (id) => apiClient.get(`/evidences/${id}/analysis`).then((res) => res.data),
   analyze: (id) => apiClient.post(`/evidences/${id}/analyze`).then((res) => res.data),

@@ -5,22 +5,41 @@ import { evidenceApi } from '../api/evidenceApi';
 import { taskApi } from '../api/taskApi';
 import EvidenceTable from '../components/EvidenceTable';
 
+const getSelectedUserId = () => localStorage.getItem('selected_user_id') || '1';
+
 export default function EvidencesPage() {
   const [evidences, setEvidences] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [file, setFile] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState(getSelectedUserId());
   const [form] = Form.useForm();
-  const load = () => evidenceApi.list().then(setEvidences);
-  useEffect(() => { load(); taskApi.list().then(setTasks); }, []);
+
+  const refreshForUser = (userId) => {
+    const numericUserId = Number(userId);
+    form.resetFields(['task_id']);
+    evidenceApi.list({ uploaded_by: numericUserId }).then(setEvidences);
+    taskApi.list({ assigned_user_id: numericUserId }).then(setTasks);
+  };
+
+  useEffect(() => {
+    refreshForUser(selectedUserId);
+    const handleUserChange = (event) => {
+      const nextUserId = String(event.detail || getSelectedUserId());
+      setSelectedUserId(nextUserId);
+      refreshForUser(nextUserId);
+    };
+    window.addEventListener('demo-user-change', handleUserChange);
+    return () => window.removeEventListener('demo-user-change', handleUserChange);
+  }, []);
 
   const upload = async () => {
     const values = await form.validateFields();
     if (!file) return message.warning('Chọn file minh chứng');
-    await evidenceApi.upload({ task_id: values.task_id, uploaded_by: localStorage.getItem('selected_user_id') || 1, file });
+    await evidenceApi.upload({ task_id: values.task_id, uploaded_by: selectedUserId, file });
     message.success('Đã upload và phân tích minh chứng');
     setFile(null);
     form.resetFields();
-    load();
+    refreshForUser(selectedUserId);
   };
 
   return (
@@ -29,7 +48,12 @@ export default function EvidencesPage() {
       <Card title="Upload minh chứng">
         <Form layout="inline" form={form}>
           <Form.Item name="task_id" rules={[{ required: true }]} className="wide-form-item">
-            <Select showSearch placeholder="Chọn nhiệm vụ" options={tasks.map((t) => ({ value: t.id, label: `${t.id} - ${t.title}` }))} />
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder="Chọn nhiệm vụ"
+              options={tasks.map((t) => ({ value: t.id, label: `${t.id} - ${t.title}` }))}
+            />
           </Form.Item>
           <Upload beforeUpload={(selected) => { setFile(selected); return false; }} maxCount={1}>
             <Button icon={<UploadOutlined />}>Chọn file</Button>

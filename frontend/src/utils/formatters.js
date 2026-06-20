@@ -9,6 +9,24 @@ export const statusLabel = {
   FAILED: 'Lỗi',
 };
 
+export const roleLabel = {
+  LEADER: 'Lãnh đạo Sở',
+  MANAGER: 'Lãnh đạo phòng',
+  STAFF: 'Cán bộ chuyên môn',
+};
+
+export const kpiTemplateLabel = {
+  BAN_GIAM_DOC: 'Ban Giám đốc',
+  TRUONG_PHO_PHONG: 'Trưởng/Phó phòng',
+  CONG_CHUC_KHONG_CHUC_VU: 'Công chức không chức vụ',
+};
+
+export const riskLevelLabel = {
+  LOW: 'Thấp',
+  MEDIUM: 'Trung bình',
+  HIGH: 'Cao',
+};
+
 export const riskColor = (score) => {
   if (score >= 85) return '#16a34a';
   if (score >= 70) return '#f59e0b';

@@ -33,8 +33,13 @@ def upload_evidence(task_id: int = Form(...), uploaded_by: int = Form(...), file
 
 
 @router.get("")
-def list_evidences(db: Session = Depends(get_db)) -> list[dict]:
-    return [evidence_to_dict(item) for item in db.query(TaskEvidence).order_by(TaskEvidence.created_at.desc()).all()]
+def list_evidences(uploaded_by: int | None = None, task_id: int | None = None, db: Session = Depends(get_db)) -> list[dict]:
+    query = db.query(TaskEvidence)
+    if uploaded_by is not None:
+        query = query.filter(TaskEvidence.uploaded_by == uploaded_by)
+    if task_id is not None:
+        query = query.filter(TaskEvidence.task_id == task_id)
+    return [evidence_to_dict(item) for item in query.order_by(TaskEvidence.created_at.desc()).all()]
 
 
 @router.post("/{evidence_id}/analyze")
