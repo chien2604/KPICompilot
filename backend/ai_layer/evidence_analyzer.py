@@ -2,66 +2,20 @@ import json
 import logging
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from ai_layer.llm_client import BaseLLMClient, get_llm_client
 
 logger = logging.getLogger(__name__)
 
-# ── Phase 1: Sinh checklist từ yêu cầu ────────────────
-_P1_SYSTEM = """Bạn là chuyên gia phân tích yêu cầu nhiệm vụ trong hệ thống KPI nhà nước Việt Nam.
-Nhiệm vụ của bạn: đọc Tên nhiệm vụ + Mô tả/Yêu cầu và sinh ra danh sách tiêu chí kiểm tra.
+_PROMPTS = Path(__file__).parent / "prompts"
 
-QUY TẮC BẮT BUỘC:
-1. Mỗi tiêu chí phải bóc tách TRỰC TIẾP từ 1 yêu cầu trong Mô tả nhiệm vụ. Không được tự thêm.
-2. Số tiêu chí = số yêu cầu rõ ràng trong Mô tả nhiệm vụ (1-đối-1).
-3. Nếu Mô tả là đoạn văn, hãy tách từng ý/điều kiện thành 1 tiêu chí riêng.
-4. Mỗi tiêu chí gồm: item (tên), importance (core/minor), deduction (30-40 cho core, 10-15 cho minor).
-
-Chỉ trả về JSON, không giải thích:
-{"checklist": [{"item": "...", "importance": "core|minor", "deduction": <int>}]}"""
-
-_P1_USER = """Tên nhiệm vụ: {task_name}
-Mô tả / Yêu cầu: {task_description}
-
-Hãy sinh danh sách tiêu chí kiểm tra từ các yêu cầu trên."""
-
-# ── Phase 2: Đối chiếu checklist với tài liệu ───────────────────────────────
-_P2_SYSTEM = """Bạn là AI thẩm định tài liệu minh chứng KPI.
-Bạn nhận được một danh sách tiêu chí kiểm tra (do hệ thống sinh ra từ yêu cầu nhiệm vụ) và nội dung tài liệu.
-Nhiệm vụ: kiểm tra từng tiêu chí xem tài liệu có đáp ứng không.
-
-QUY TẮC BẮT BUỘC:
-1. KHÔNG ĐƯỢC thêm, bớt, hay sửa tên tiêu chí — chỉ điền met/note cho mỗi item được cung cấp.
-2. Khi viết note: PHẢI trích dẫn trực tiếp từ tài liệu. Nếu không tìm thấy → "Không tìm thấy trong tài liệu".
-3. NGHIÊM CẤM bịa ra thông tin không có trong văn bản.
-4. compatibility_score = 100 - tổng deduction của các item met=false (tối thiểu 0).
-5. Nếu tất cả item core đều met=false → score = 0.
-
-Trả về JSON:
-{
-  "compatibility_score": <int 0-100>,
-  "checklist": [
-    {"item": "<giữ nguyên tên item>", "met": <true|false>, "note": "<trích dẫn từ văn bản>", "deduction": <int>, "importance": "<core|minor>"}
-  ],
-  "ai_comment": "<2-4 câu, chỉ rõ tiêu chí nào không đạt và điểm trừ>",
-  "strengths": ["..."],
-  "weaknesses": ["..."]
-}"""
-
-_P2_USER = """=== DANH SÁCH TIÊU CHÍ CẦN KIỂM TRA ===
-{checklist_section}
-
-=== THÔNG TIN BỔ SUNG ===
-Người thực hiện: {uploader_name} | Phòng ban: {department} | Hạn chót: {task_deadline}
-
-=== NỘI DUNG TÀI LIỆU MINH CHỨNG ===
-Tên file: {filename} | Loại: {file_type}
-
-{content_section}
-
-=== YÊU CẦU ===
-Kiểm tra từng tiêu chí trên so với nội dung tài liệu và trả về JSON."""
+# ── Load prompts từ file chung (ai_layer/prompts/) ──────────────────────────
+_P1_SYSTEM = (_PROMPTS / "evidence_phase1_system.txt").read_text(encoding="utf-8")
+_P1_USER   = (_PROMPTS / "evidence_phase1_user.txt").read_text(encoding="utf-8")
+_P2_SYSTEM = (_PROMPTS / "evidence_phase2_system.txt").read_text(encoding="utf-8")
+_P2_USER   = (_PROMPTS / "evidence_phase2_user.txt").read_text(encoding="utf-8")
 
 
 def _extract_requirements(task_description: str) -> list[str]:
