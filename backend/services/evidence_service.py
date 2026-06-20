@@ -7,6 +7,7 @@ from ai_layer.evidence_analyzer import EvidenceAnalyzer
 from ai_layer.rag.graph_rag_service import GraphRAGService
 from db.models.evidences import TaskEvidence
 from db.models.tasks import Task
+from db.models.users import User
 from services.file_storage import FileStorage
 
 
@@ -31,7 +32,21 @@ class EvidenceService:
             rag = GraphRAGService(self.db)
             indexed = rag.index_evidence(evidence.id)
             task = self.db.get(Task, task_id)
-            analysis = EvidenceAnalyzer().analyze(task.title if task else "", task.description if task else "", indexed["text"])
+            user = self.db.get(User, uploaded_by)
+            uploader_name = user.full_name if user else "(không rõ)"
+            department_name = user.department.name if user and user.department else "(không rõ)"
+            task_deadline = task.deadline.strftime("%d/%m/%Y") if task and task.deadline else "(chưa đặt)"
+
+            analysis = EvidenceAnalyzer().analyze(
+                task_title=task.title if task else "",
+                task_description=task.description if task else "",
+                evidence_text=indexed["text"],
+                uploader_name=uploader_name,
+                department=department_name,
+                task_deadline=task_deadline,
+                filename=file_name,
+                file_type=file.content_type,
+            )
             evidence.ai_relevance_score = float(analysis.get("relevance_score") or 0)
             evidence.ai_summary = analysis.get("summary")
             evidence.ai_missing_points = json.dumps({
@@ -68,7 +83,21 @@ class EvidenceService:
         if not evidence:
             raise ValueError("Không tìm thấy minh chứng")
         task = self.db.get(Task, evidence.task_id)
-        analysis = EvidenceAnalyzer().analyze(task.title if task else "", task.description if task else "", evidence.extracted_text or "")
+        user = self.db.get(User, evidence.uploaded_by)
+        uploader_name = user.full_name if user else "(không rõ)"
+        department_name = user.department.name if user and user.department else "(không rõ)"
+        task_deadline = task.deadline.strftime("%d/%m/%Y") if task and task.deadline else "(chưa đặt)"
+
+        analysis = EvidenceAnalyzer().analyze(
+            task_title=task.title if task else "",
+            task_description=task.description if task else "",
+            evidence_text=evidence.extracted_text or "",
+            uploader_name=uploader_name,
+            department=department_name,
+            task_deadline=task_deadline,
+            filename=evidence.file_name,
+            file_type=evidence.file_type,
+        )
         evidence.ai_relevance_score = float(analysis.get("relevance_score") or 0)
         evidence.ai_summary = analysis.get("summary")
         evidence.ai_missing_points = json.dumps({

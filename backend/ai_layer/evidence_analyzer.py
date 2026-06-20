@@ -52,7 +52,12 @@ Trả về JSON:
 _P2_USER = """=== DANH SÁCH TIÊU CHÍ CẦN KIỂM TRA ===
 {checklist_section}
 
+=== THÔNG TIN BỔ SUNG ===
+Người thực hiện: {uploader_name} | Phòng ban: {department} | Hạn chót: {task_deadline}
+
 === NỘI DUNG TÀI LIỆU MINH CHỨNG ===
+Tên file: {filename} | Loại: {file_type}
+
 {content_section}
 
 === YÊU CẦU ===
@@ -206,7 +211,17 @@ class EvidenceAnalyzer:
             "weaknesses": ["Hệ thống gặp lỗi khi phân tích, vui lòng thử lại"]
         }
 
-    def analyze(self, task_title: str, task_description: str | None, evidence_text: str) -> dict:
+    def analyze(
+        self, 
+        task_title: str, 
+        task_description: str | None, 
+        evidence_text: str,
+        uploader_name: str = "(không rõ)",
+        department: str = "(không rõ)",
+        task_deadline: str = "(chưa đặt)",
+        filename: str = "(không rõ)",
+        file_type: str = "(không rõ)",
+    ) -> dict:
         try:
             logger.info("[Phase 1] Building checklist from requirements")
             p1_user = _P1_USER.format(task_name=task_title, task_description=task_description or "(không có mô tả)")
@@ -237,6 +252,11 @@ class EvidenceAnalyzer:
 
             p2_user = _P2_USER.format(
                 checklist_section=checklist_section,
+                uploader_name=uploader_name,
+                department=department,
+                task_deadline=task_deadline,
+                filename=filename,
+                file_type=file_type.upper(),
                 content_section=f"Nội dung trích xuất:\n{trimmed_text}",
             )
             raw = self.llm.complete(prompt=p2_user, system_prompt=_P2_SYSTEM)
