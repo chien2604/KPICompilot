@@ -9,11 +9,22 @@ const { Title, Text, Paragraph } = Typography;
 export default function EvidenceAnalysisPage() {
   const { evidenceId } = useParams();
   const [analysis, setAnalysis] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+
   const load = () => evidenceApi.analysis(evidenceId).then(setAnalysis);
   useEffect(() => {
     load();
   }, [evidenceId]);
-  const analyze = async () => { await evidenceApi.analyze(evidenceId); load(); };
+
+  const analyze = async () => { 
+    setAnalyzing(true);
+    try {
+      await evidenceApi.analyze(evidenceId); 
+      await load(); 
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   if (!analysis) return null;
 
@@ -37,7 +48,9 @@ export default function EvidenceAnalysisPage() {
     <div className="page">
       <div className="page-title-row" style={{ marginBottom: 16 }}>
         <Title level={3}>AI Phân tích Minh chứng</Title>
-        <Button icon={<ReloadOutlined />} onClick={analyze} type="primary">Phân tích lại</Button>
+        <Button icon={<ReloadOutlined />} onClick={analyze} type="primary" loading={analyzing}>
+          {analyzing ? 'Đang phân tích...' : 'Phân tích lại'}
+        </Button>
       </div>
 
       <Row gutter={[16, 16]}>
