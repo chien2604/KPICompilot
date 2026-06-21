@@ -59,11 +59,12 @@ export default function EvidencesPage() {
     
     setUploading(true);
     try {
-      await evidenceApi.upload({ task_id: values.task_id, uploaded_by: selectedUserId, file });
+      const activeUserId = getSelectedUserId();
+      await evidenceApi.upload({ task_id: values.task_id, uploaded_by: activeUserId, file });
       message.success('Đã upload và phân tích minh chứng');
       setFile(null);
       form.resetFields();
-      refreshForUser(selectedUserId);
+      refreshForUser(activeUserId);
     } catch (err) {
       console.error(err);
       message.error('Gặp lỗi khi tải lên hoặc phân tích minh chứng');

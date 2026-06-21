@@ -81,13 +81,8 @@ def _parse_ai_response(raw: str, task_name: str = "", requirements: list[str] = 
                     except (ValueError, TypeError):
                         pass
 
-            if not bool(item.get("met", False)) and deduction <= 0:
-                deduction = 20
-
-            if importance == "core" and deduction < 30:
-                deduction = 30
-            elif importance != "core" and not bool(item.get("met", False)) and deduction < 10:
-                deduction = 10
+            if deduction <= 0:
+                deduction = 30 if importance == "core" else 10
 
             checklist.append({
                 "item": str(item.get("item", "Tiêu chí không rõ")),
@@ -140,6 +135,20 @@ def _parse_ai_response(raw: str, task_name: str = "", requirements: list[str] = 
 
     if not sanitized_checklist:
         sanitized_checklist = [{"item": "Nội dung phù hợp với nhiệm vụ", "met": True, "note": "", "deduction": 0, "importance": "minor"}]
+
+    # Proportionally scale deductions if total raw sum exceeds 100
+    total_raw_deductions = sum(it["deduction"] for it in sanitized_checklist)
+    if total_raw_deductions > 100:
+        scaled_sum = 0
+        for it in sanitized_checklist:
+            scaled = (it["deduction"] / total_raw_deductions) * 100
+            it["deduction"] = max(1, int(round(scaled)))
+            scaled_sum += it["deduction"]
+            
+        diff = 100 - scaled_sum
+        if diff != 0 and sanitized_checklist:
+            largest_item = max(sanitized_checklist, key=lambda x: x["deduction"])
+            largest_item["deduction"] = max(1, largest_item["deduction"] + diff)
 
     total_deductions = sum(it["deduction"] for it in sanitized_checklist if not it["met"])
     all_failed = all(not it["met"] for it in sanitized_checklist)
@@ -210,6 +219,21 @@ class EvidenceAnalyzer:
                 pass
 
             requirements = _extract_requirements(task_description or task_title)
+
+            def _is_valid_p1_item(item_name: str, pool: list[str]) -> bool:
+                item_clean = item_name.strip().lower()
+                for req in pool:
+                    req_clean = req.strip().lower()
+                    if req_clean in item_clean or item_clean in req_clean:
+                        return True
+                    ratio = difflib.SequenceMatcher(None, item_clean, req_clean).ratio()
+                    if ratio >= 0.45:
+                        return True
+                return False
+
+            if p1_items and requirements:
+                p1_items = [item for item in p1_items if _is_valid_p1_item(item.get("item", ""), requirements)]
+
             if not p1_items:
                 p1_items = [{"item": req, "importance": "core", "deduction": 30} for req in requirements]
 
