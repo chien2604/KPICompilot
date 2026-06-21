@@ -1,3 +1,4 @@
+import difflib
 import json
 import logging
 import re
@@ -95,28 +96,47 @@ def _parse_ai_response(raw: str, task_name: str = "", requirements: list[str] = 
                 "deduction": max(0, deduction),
                 "importance": importance,
             })
-
-    _STOP = {"tài", "liệu", "có", "và", "là", "của", "trong", "về", "cho", "với", "được", "theo", "đầy", "đủ", "thông", "tin", "các", "một", "khi", "hoặc", "nếu", "này", "đúng", "hợp", "lệ", "phù", "hợp", "rõ", "ràng", "đã", "chưa", "bị", "được", "phải", "cần", "nên", "không", "kết", "quả"}
-
-    def _kw(text: str) -> set[str]:
-        return {t for t in re.findall(r'\w{3,}', text.lower()) if t not in _STOP}
-
     req_pool = list(requirements) if requirements else []
-    if task_name:
+    if task_name and task_name not in req_pool:
         req_pool.insert(0, task_name)
 
-    all_req_keywords = [_kw(r) for r in req_pool]
-    all_req_kw_union = set().union(*all_req_keywords) if all_req_keywords else set()
+    def _find_matching_requirement(item_name: str, pool: list[str]) -> str | None:
+        item_clean = item_name.strip().lower()
+        _STOP = {"tài", "liệu", "có", "và", "là", "của", "trong", "về", "cho", "với", "được", "theo", "đầy", "đủ", "thông", "tin", "các", "một", "khi", "hoặc", "nếu", "này", "đúng", "hợp", "lệ", "phù", "hợp", "rõ", "ràng", "đã", "chưa", "bị", "được", "phải", "cần", "nên", "không", "kết", "quả"}
+        def _kw(text: str) -> set[str]:
+            return {t for t in re.findall(r'\w{3,}', text.lower()) if t not in _STOP}
+            
+        item_keywords = _kw(item_clean)
+        best_ratio = 0.0
+        best_req = None
+        for req in pool:
+            req_clean = req.strip().lower()
+            if item_clean == req_clean:
+                return req
+            if req_clean in item_clean or item_clean in req_clean:
+                ratio = 0.85 + 0.1 * (min(len(req_clean), len(item_clean)) / max(len(req_clean), len(item_clean), 1))
+            else:
+                ratio = difflib.SequenceMatcher(None, item_clean, req_clean).ratio()
+            
+            # Boost ratio if they share keywords
+            req_keywords = _kw(req_clean)
+            shared_keywords = item_keywords & req_keywords
+            if shared_keywords:
+                ratio += min(0.3, 0.15 * len(shared_keywords))
+                
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_req = req
+        if best_ratio >= 0.45:
+            return best_req
+        return None
 
     sanitized_checklist = []
     for it in checklist:
-        item_kw = _kw(it["item"])
-        if len(req_pool) >= 2 and all_req_keywords:
-            if not any(bool(item_kw & req_kw) for req_kw in all_req_keywords):
-                continue
-        elif all_req_kw_union and not (item_kw & all_req_kw_union):
-            continue
-        sanitized_checklist.append(it)
+        matching_req = _find_matching_requirement(it["item"], req_pool)
+        if matching_req:
+            it["item"] = matching_req
+            sanitized_checklist.append(it)
 
     if not sanitized_checklist:
         sanitized_checklist = [{"item": "Nội dung phù hợp với nhiệm vụ", "met": True, "note": "", "deduction": 0, "importance": "minor"}]
@@ -200,8 +220,8 @@ class EvidenceAnalyzer:
             )
 
             logger.info("[Phase 2] Verifying checklist against document")
-            trimmed_text = evidence_text[:8000]
-            if len(evidence_text) > 8000:
+            trimmed_text = evidence_text[:32000]
+            if len(evidence_text) > 32000:
                 trimmed_text += "\n\n[... nội dung bị cắt bớt ...]"
 
             p2_user = _P2_USER.format(

@@ -1,9 +1,9 @@
 import { apiClient } from './client';
 
 export const evidenceApi = {
-  list: (params) => apiClient.get('/evidences', { params }).then((res) => res.data),
-  get: (id) => apiClient.get(`/evidences/${id}`).then((res) => res.data),
-  analysis: (id) => apiClient.get(`/evidences/${id}/analysis`).then((res) => res.data),
+  list: (params) => apiClient.get('/evidences', { params: { ...params, _t: Date.now() } }).then((res) => res.data),
+  get: (id) => apiClient.get(`/evidences/${id}`, { params: { _t: Date.now() } }).then((res) => res.data),
+  analysis: (id) => apiClient.get(`/evidences/${id}/analysis`, { params: { _t: Date.now() } }).then((res) => res.data),
   analyze: (id) => apiClient.post(`/evidences/${id}/analyze`).then((res) => res.data),
   upload: ({ task_id, uploaded_by, file }) => {
     const form = new FormData();
