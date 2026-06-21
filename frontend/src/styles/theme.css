@@ -148,20 +148,22 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: 540px;
+  min-height: 620px;
 }
 
 .chatbox .ant-list {
   flex: 1;
-  max-height: 470px;
+  max-height: 560px;
   overflow: auto;
 }
 
 .chatbox__msg {
+  max-width: 78%;
   margin-bottom: 10px;
   padding: 12px 14px !important;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
+  white-space: pre-wrap;
 }
 
 .chatbox__msg--assistant {
@@ -169,8 +171,63 @@ body {
 }
 
 .chatbox__msg--user {
+  margin-left: auto;
   background: #e8f3fc;
   justify-content: flex-end;
+}
+
+.copilot-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.conversation-sidebar {
+  min-height: 700px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.conversation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.conversation-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 8px;
+  color: #334155;
+  cursor: pointer;
+}
+
+.conversation-item:hover {
+  background: #f1f5f9;
+}
+
+.conversation-item--active {
+  color: #0f4c81;
+  background: #e8f3fc;
+  font-weight: 700;
+}
+
+.conversation-item__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copilot-chat-card .ant-card-body {
+  padding: 18px;
 }
 
 .reports-layout {
@@ -208,9 +265,18 @@ body {
   }
 
   .page-title-row,
-  .reports-layout {
+  .reports-layout,
+  .copilot-layout {
     grid-template-columns: 1fr;
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .conversation-sidebar {
+    min-height: auto;
+  }
+
+  .chatbox__msg {
+    max-width: 100%;
   }
 }

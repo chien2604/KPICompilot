@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import chatbot, departments, evidences, kpi, reports, tasks, users
+from api.routes import chatbot, conversations, departments, evidences, kpi, reports, tasks, users
 from core.config import get_settings
 from core.logging import configure_logging
 
@@ -23,6 +23,7 @@ app.include_router(tasks.router, prefix=settings.api_prefix)
 app.include_router(evidences.router, prefix=settings.api_prefix)
 app.include_router(kpi.router, prefix=settings.api_prefix)
 app.include_router(chatbot.router, prefix=settings.api_prefix)
+app.include_router(conversations.router, prefix=settings.api_prefix)
 app.include_router(reports.router, prefix=settings.api_prefix)
 
 

@@ -12,6 +12,12 @@ class BaseLLMClient(ABC):
 
 class MockLLMClient(BaseLLMClient):
     def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+        if "Tóm tắt câu hỏi dưới đây thành tiêu đề ngắn" in prompt:
+            question = prompt.split("Câu hỏi:", 1)[-1].strip()
+            words = question.replace("?", "").replace(".", "").split()
+            return " ".join(words[:8]) or "Hội thoại KPI"
+        if "Tóm tắt hội thoại" in prompt or "summary" in prompt.lower():
+            return "Người dùng đang trao đổi về KPI, tiến độ nhiệm vụ và các rủi ro cần lãnh đạo theo dõi."
         if "relevance_score" in prompt:
             return json.dumps(
                 {
@@ -48,6 +54,9 @@ class OpenAILLMClient(BaseLLMClient):
         )
 
     def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+        kwargs = {}
+        if _expects_json(prompt, system_prompt):
+            kwargs["response_format"] = {"type": "json_object"}
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -55,7 +64,7 @@ class OpenAILLMClient(BaseLLMClient):
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
-            response_format={"type": "json_object"},
+            **kwargs,
         )
         return response.choices[0].message.content or ""
 
@@ -71,6 +80,9 @@ class GroqLLMClient(BaseLLMClient):
         )
 
     def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+        kwargs = {}
+        if _expects_json(prompt, system_prompt):
+            kwargs["response_format"] = {"type": "json_object"}
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -78,9 +90,14 @@ class GroqLLMClient(BaseLLMClient):
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
-            response_format={"type": "json_object"},
+            **kwargs,
         )
         return response.choices[0].message.content or ""
+
+
+def _expects_json(prompt: str, system_prompt: str | None = None) -> bool:
+    text = f"{system_prompt or ''}\n{prompt}".lower()
+    return "trả về json" in text or "json hợp lệ" in text or '"relevance_score"' in text or "compatibility_score" in text
 
 
 def get_llm_client() -> BaseLLMClient:
