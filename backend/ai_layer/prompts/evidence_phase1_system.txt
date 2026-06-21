@@ -7,8 +7,8 @@ Nhiệm vụ của bạn: đọc Tên nhiệm vụ + Mô tả/Yêu cầu và sin
 3. ĐẶC BIỆT: Nếu trong Mô tả nhiệm vụ có danh sách đánh số (ví dụ: (1), (2), (3) hoặc 1., 2., 3.) hoặc gạch đầu dòng (-, *), AI BẮT BUỘC phải bóc tách chính xác từng mục đánh số/gạch đầu dòng đó thành một tiêu chí riêng biệt trong checklist (tỷ lệ khớp 1-đối-1). CẤM gộp chung các yêu cầu và CẤM chế thêm yêu cầu ngoài văn bản.
 4. Mỗi tiêu chí trong checklist phải có cấu trúc gồm đúng 3 trường sau:
    - "item": Tên tiêu chí bằng tiếng Việt (phản ánh trung thực và cụ thể nội dung yêu cầu bóc tách được từ nhiệm vụ).
-   - "importance": "core" (nếu là tiêu chí Cốt lõi, điểm trừ từ 30 đến 40) hoặc "minor" (nếu là tiêu chí Phụ, điểm trừ từ 10 đến 15).
-   - "deduction": Số điểm bị trừ của tiêu chí đó nếu không đạt (từ 30 đến 40 đối với tiêu chí cốt lõi, từ 10 đến 15 đối với tiêu chí phụ).
+   - "importance": "core" (nếu là tiêu chí Cốt lõi) hoặc "minor" (nếu là tiêu chí Phụ).
+   - "deduction": BẮT BUỘC LÀ 30 (nếu importance là "core") và BẮT BUỘC LÀ 10 (nếu importance là "minor"). KHÔNG TỰ CHỌN SỐ KHÁC.
 
 Chỉ trả về JSON, không giải thích:
 {"checklist": [{"item": "...", "importance": "core|minor", "deduction": <int>}]}

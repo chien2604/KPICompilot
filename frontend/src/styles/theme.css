@@ -280,3 +280,31 @@ body {
     max-width: 100%;
   }
 }
+
+.ai-markdown-container {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.ai-markdown-container p {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.ai-markdown-container ul {
+  padding-left: 20px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+
+.ai-markdown-container li {
+  margin-bottom: 4px;
+}
+
+.ai-markdown-container h1,
+.ai-markdown-container h2,
+.ai-markdown-container h3,
+.ai-markdown-container h4 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}

@@ -54,6 +54,14 @@ class OpenAILLMClient(BaseLLMClient):
         )
 
     def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+        import hashlib
+        cache_key = hashlib.md5(f"{prompt}||{system_prompt}".encode("utf-8")).hexdigest()
+        global _LLM_CACHE
+        if "_LLM_CACHE" not in globals():
+            _LLM_CACHE = {}
+        if cache_key in _LLM_CACHE:
+            return _LLM_CACHE[cache_key]
+
         kwargs = {}
         if _expects_json(prompt, system_prompt):
             kwargs["response_format"] = {"type": "json_object"}
@@ -63,10 +71,18 @@ class OpenAILLMClient(BaseLLMClient):
                 {"role": "system", "content": system_prompt or "Bạn là trợ lý AI trả lời tiếng Việt."},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.2,
+            temperature=0.0,
+            seed=42,
             **kwargs,
         )
-        return response.choices[0].message.content or ""
+        result = response.choices[0].message.content or ""
+        _LLM_CACHE[cache_key] = result
+        return result
+
+def _expects_json(prompt: str, system_prompt: str | None) -> bool:
+    content = (prompt + " " + (system_prompt or "")).lower()
+    return "json" in content
+
 
 def get_llm_client() -> BaseLLMClient:
     settings = get_settings()

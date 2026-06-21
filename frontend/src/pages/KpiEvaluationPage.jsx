@@ -2,6 +2,7 @@ import { Button, Card, Descriptions, Progress, Space, Table, Typography, message
 import { ReloadOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import { kpiApi } from '../api/kpiApi';
 import { riskLevelLabel } from '../utils/formatters';
 
@@ -24,20 +25,32 @@ export default function KpiEvaluationPage() {
         <Button type="primary" icon={<ReloadOutlined />} onClick={recompute}>Tính lại KPI</Button>
       </div>
       <Card>
-        <Descriptions column={2}>
-          <Descriptions.Item label="Điểm tổng"><Progress type="circle" percent={Math.round(score?.total_score || 0)} /></Descriptions.Item>
-          <Descriptions.Item label="Xếp loại">{score?.classification}</Descriptions.Item>
+        <Descriptions column={2} bordered>
+          <Descriptions.Item label="Điểm tổng"><Progress type="circle" percent={Math.round(score?.total_score || 0)} size="small" /></Descriptions.Item>
+          <Descriptions.Item label="Xếp loại"><strong>{score?.classification}</strong></Descriptions.Item>
           <Descriptions.Item label="Mức rủi ro">{riskLevelLabel[score?.risk_level] || score?.risk_level}</Descriptions.Item>
-          <Descriptions.Item label="Kỳ">{score?.period_month}</Descriptions.Item>
-          <Descriptions.Item label="AI giải thích" span={2}><div style={{ whiteSpace: 'pre-wrap' }}>{score?.ai_explanation}</div></Descriptions.Item>
+          <Descriptions.Item label="Kỳ đánh giá">{score?.period_month}</Descriptions.Item>
+          <Descriptions.Item label="AI Giải thích" span={2}>
+            <div className="ai-markdown-container">
+              <ReactMarkdown>{score?.ai_explanation || ''}</ReactMarkdown>
+            </div>
+          </Descriptions.Item>
         </Descriptions>
       </Card>
-      <Card title="Breakdown Rule Engine">
-        <Table rowKey="group_name" dataSource={rows} pagination={false} columns={[
-          { title: 'Nhóm tiêu chí', dataIndex: 'group_name' },
-          { title: 'Điểm tối đa', dataIndex: 'max_score', width: 120 },
-          { title: 'Điểm', dataIndex: 'score', width: 120 },
-          { title: 'Lý do', dataIndex: 'reasons', render: (items) => items?.join('; ') },
+      <Card title="Ma trận tính điểm KPI">
+        <Table rowKey="group_name" dataSource={rows} pagination={false} bordered columns={[
+          { title: 'Tiêu chí đánh giá', dataIndex: 'group_name', render: (text) => <strong>{text}</strong> },
+          { title: 'Trọng số', dataIndex: 'max_score', width: 100, align: 'center' },
+          { title: 'Điểm quy đổi thực tế', dataIndex: 'score', width: 160, align: 'center', render: (val, record) => (
+            <Typography.Text type={val < record.max_score * 0.7 ? 'danger' : 'success'}>
+              {val} / {record.max_score}
+            </Typography.Text>
+          ) },
+          { title: 'Lý do', dataIndex: 'reasons', render: (items) => (
+            <ul style={{ paddingLeft: 20, margin: 0 }}>
+              {items?.map((item, idx) => <li key={idx}>{item}</li>)}
+            </ul>
+          ) },
         ]} />
       </Card>
     </Space>
