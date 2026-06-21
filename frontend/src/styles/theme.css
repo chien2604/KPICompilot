@@ -214,3 +214,95 @@ body {
     align-items: stretch;
   }
 }
+/* ───────────────────────────────────────────────────────────
+   Report blocks (structured report rendering) — bổ sung cho
+   tính năng sinh báo cáo có cấu trúc + edit/export PDF/DOCX
+   ─────────────────────────────────────────────────────────── */
+
+.reports-detail {
+  display: flex;
+  flex-direction: column;
+}
+
+.report-block-view {
+  max-width: 760px;
+}
+
+.report-block-list {
+  font-size: 14px;
+  line-height: 1.7;
+  padding-left: 22px;
+}
+
+.report-block-table {
+  margin: 8px 0 16px;
+}
+
+.report-block-divider {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 18px 0;
+}
+
+.report-kpi-stats-row {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0 20px;
+  flex-wrap: wrap;
+}
+
+.report-kpi-stat-card {
+  flex: 1;
+  min-width: 140px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #f8fafc;
+}
+
+.report-kpi-stat-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1769aa;
+}
+
+.report-kpi-stat-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.report-kpi-stat-note {
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.report-editor-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.report-editor-block {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.report-editor-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 860px) {
+  .report-kpi-stats-row {
+    flex-direction: column;
+  }
+}

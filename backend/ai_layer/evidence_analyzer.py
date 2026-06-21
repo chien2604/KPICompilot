@@ -225,7 +225,7 @@ class EvidenceAnalyzer:
         try:
             logger.info("[Phase 1] Building checklist from requirements")
             p1_user = _P1_USER.format(task_name=task_title, task_description=task_description or "(không có mô tả)")
-            p1_raw = self.llm.complete(prompt=p1_user, system_prompt=_P1_SYSTEM)
+            p1_raw = self.llm.complete(prompt=p1_user, system_prompt=_P1_SYSTEM, expect_json=True)
             
             p1_items = []
             try:
@@ -259,7 +259,7 @@ class EvidenceAnalyzer:
                 file_type=file_type.upper(),
                 content_section=f"Nội dung trích xuất:\n{trimmed_text}",
             )
-            raw = self.llm.complete(prompt=p2_user, system_prompt=_P2_SYSTEM)
+            raw = self.llm.complete(prompt=p2_user, system_prompt=_P2_SYSTEM, expect_json=True)
             
             return _parse_ai_response(
                 raw=raw, 

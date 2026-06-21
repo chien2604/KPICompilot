@@ -14,6 +14,7 @@ class KPIExplainer:
     def explain(self, payload: dict) -> str:
         prompt = f"{PROMPT.read_text(encoding='utf-8')}\n\nDữ liệu KPI:\n{json.dumps(payload, ensure_ascii=False, indent=2)}"
         try:
+            # expect_json=False (mặc định): kết quả là Markdown thuần, không phải JSON.
             return self.llm.complete(prompt)
         except Exception:
             return "Điểm KPI được tính từ Rule Engine dựa trên tiến độ nhiệm vụ, hạn xử lý và minh chứng liên quan."

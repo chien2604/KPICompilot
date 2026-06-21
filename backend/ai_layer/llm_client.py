@@ -6,12 +6,12 @@ from core.config import get_settings
 
 class BaseLLMClient(ABC):
     @abstractmethod
-    def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
         raise NotImplementedError
 
 
 class MockLLMClient(BaseLLMClient):
-    def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
         if "relevance_score" in prompt:
             return json.dumps(
                 {
@@ -25,7 +25,20 @@ class MockLLMClient(BaseLLMClient):
                 ensure_ascii=False,
             )
         if "báo cáo giao ban" in prompt.lower():
-            return "<h2>Báo cáo giao ban</h2><p>Tình hình chung ổn định, cần tập trung xử lý các nhiệm vụ quá hạn và nhóm cán bộ có KPI rủi ro.</p>"
+            # Trả về Markdown (có quốc hiệu tiêu ngữ), không phải HTML, vì `content`
+            # giờ được hiểu là Markdown thuần — xem services/report_service.py.
+            return (
+                "::: {custom-style=\"Centered\"}\n"
+                "**CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM**\n\n"
+                "**Độc lập - Tự do - Hạnh phúc**\n"
+                ":::\n\n"
+                "---\n\n"
+                "# BÁO CÁO GIAO BAN\n\n"
+                "## 1. Tình hình chung\n\n"
+                "- Tình hình chung ổn định, cần tập trung xử lý các nhiệm vụ quá hạn và nhóm cán bộ có KPI rủi ro.\n\n"
+                "## 5. Kiến nghị\n\n"
+                "1. Đôn đốc xử lý các nhiệm vụ quá hạn (dữ liệu mock demo khi chưa cấu hình LLM thật)."
+            )
         return "Dựa trên dữ liệu hiện có, hệ thống ghi nhận một số nhiệm vụ chậm tiến độ và nhóm KPI rủi ro cần lãnh đạo theo dõi. Đây là phản hồi mock để demo khi chưa cấu hình LLM thật."
 
 
@@ -47,7 +60,10 @@ class OpenAILLMClient(BaseLLMClient):
             default_headers=default_headers or None,
         )
 
-    def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
+        kwargs = {}
+        if expect_json:
+            kwargs["response_format"] = {"type": "json_object"}
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -55,7 +71,7 @@ class OpenAILLMClient(BaseLLMClient):
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
-            response_format={"type": "json_object"},
+            **kwargs,
         )
         return response.choices[0].message.content or ""
 
@@ -70,7 +86,10 @@ class GroqLLMClient(BaseLLMClient):
             base_url="https://api.groq.com/openai/v1",
         )
 
-    def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
+        kwargs = {}
+        if expect_json:
+            kwargs["response_format"] = {"type": "json_object"}
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -78,7 +97,7 @@ class GroqLLMClient(BaseLLMClient):
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
-            response_format={"type": "json_object"},
+            **kwargs,
         )
         return response.choices[0].message.content or ""
 

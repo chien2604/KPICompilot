@@ -10,6 +10,8 @@ sys.path.append(str(BACKEND))
 
 from ai_layer.rag.kuzu_graph_store import KuzuGraphStore  # noqa: E402
 from ai_layer.rag.embedding_client import MockEmbeddingClient  # noqa: E402
+from xoa.report_block_builder import build_fallback_blocks  # noqa: E402
+from xoa.report_html_renderer import render_fragment  # noqa: E402
 from core.config import get_settings  # noqa: E402
 from db.database import SessionLocal  # noqa: E402
 from db.models import (  # noqa: E402
@@ -241,19 +243,27 @@ def _seed_chat_logs_and_reports(db, users: list[User]) -> None:
                 sources_json=[{"type": "seed", "note": "Dữ liệu hội thoại mẫu"}],
             )
         )
-    report_contents = [
-        "<h2>Báo cáo giao ban tuần 25</h2><p>KPI toàn Sở ở mức khá, cần xử lý nhóm nhiệm vụ quá hạn.</p>",
-        "<h2>Báo cáo tháng 06/2026</h2><p>Nhiệm vụ hoàn thành chiếm đa số, một số phòng cần bổ sung minh chứng.</p>",
-        "<h2>Báo cáo chuyên đề KPI</h2><p>Các cán bộ dưới 70 điểm cần có kế hoạch hỗ trợ và kiểm tra tiến độ.</p>",
+
+    # Báo cáo seed: dùng report_data (blocks) làm nguồn dữ liệu chính,
+    # content (HTML) được render lại từ report_data để đảm bảo đồng bộ.
+    report_specs = [
+        ("WEEKLY", "2026-W25", {"tasks_by_status": {"COMPLETED": 158, "IN_PROGRESS": 20, "NOT_STARTED": 5, "OVERDUE": 12}, "total_tasks": 195, "risk_users": [
+            {"name": "Cán bộ rủi ro mẫu 1", "department": "Phòng Dân tộc", "score": 62, "risk": "HIGH"},
+            {"name": "Cán bộ rủi ro mẫu 2", "department": "Phòng Tôn giáo", "score": 68, "risk": "MEDIUM"},
+        ]}),
+        ("MONTHLY", "2026-06", {"tasks_by_status": {"COMPLETED": 158, "IN_PROGRESS": 20, "NOT_STARTED": 5, "OVERDUE": 12}, "total_tasks": 195, "risk_users": []}),
+        ("WEEKLY", "2026-W24", {"tasks_by_status": {"COMPLETED": 140, "IN_PROGRESS": 18, "NOT_STARTED": 3, "OVERDUE": 8}, "total_tasks": 169, "risk_users": []}),
     ]
-    for index, content in enumerate(report_contents, start=1):
+    for report_type, period, data in report_specs:
+        report_data = build_fallback_blocks(data, report_type, period)
         db.add(
             Report(
-                report_type="WEEKLY" if index == 1 else "MONTHLY",
-                period="2026-W25" if index == 1 else "2026-06",
+                report_type=report_type,
+                period=period,
                 department_id=None,
-                content=content,
-                summary_json={"seed": True, "risk_users": 8 + index, "overdue_tasks": 12},
+                report_data=report_data,
+                content=render_fragment(report_data),
+                summary_json={"seed": True, **data},
                 created_by=users[0].id,
             )
         )

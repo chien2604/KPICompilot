@@ -10,6 +10,11 @@ class ReportGenerateIn(BaseModel):
     created_by: int | None = None
 
 
+class ReportContentUpdateIn(BaseModel):
+    """Payload cho tính năng Edit báo cáo. Sửa trực tiếp toàn bộ HTML."""
+    content: str
+
+
 class ReportOut(BaseModel):
     id: int
     report_type: str
@@ -19,5 +24,6 @@ class ReportOut(BaseModel):
     summary_json: dict
     created_by: int | None = None
     created_at: datetime
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
