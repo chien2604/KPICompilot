@@ -96,28 +96,32 @@ class KPIEngine:
             grouped[criterion.group_name]["max_score"] += criterion.max_score
             grouped[criterion.group_name]["criteria"].append(criterion.criterion_name)
         if not grouped:
-            grouped["Hiệu quả thực hiện nhiệm vụ"] = {"max_score": 50, "criteria": []}
-            grouped["Kỷ luật - kỷ cương hành chính"] = {"max_score": 20, "criteria": []}
-            grouped["Đạo đức công vụ"] = {"max_score": 20, "criteria": []}
+            grouped["Kết quả công việc"] = {"max_score": 40, "criteria": []}
+            grouped["Tiến độ"] = {"max_score": 20, "criteria": []}
+            grouped["Kỷ luật thái độ"] = {"max_score": 15, "criteria": []}
+            grouped["Phối hợp hỗ trợ"] = {"max_score": 15, "criteria": []}
             grouped["Phát triển năng lực"] = {"max_score": 10, "criteria": []}
         rows = []
         for group_name, data in grouped.items():
             max_score = float(data["max_score"])
             name = group_name.lower()
-            if "hiệu quả" in name:
+            if "kết quả" in name:
                 ratio = avg_task_score / 100
-                reasons = [f"Điểm nhiệm vụ trung bình {avg_task_score:.1f}/100."]
+                reasons = [f"Điểm chất lượng minh chứng và kết quả công việc trung bình đạt {avg_task_score:.1f}/100."]
+            elif "tiến độ" in name:
+                ratio = max(0.4, 1 - overdue_count * 0.15)
+                if overdue_count > 0:
+                    reasons = [f"Bị trừ điểm do có {overdue_count} nhiệm vụ quá hạn."]
+                else:
+                    reasons = ["100% nhiệm vụ đảm bảo đúng tiến độ yêu cầu."]
             elif "kỷ luật" in name:
-                ratio = max(0.55, 1 - overdue_count * 0.04)
-                reasons = [f"Có {overdue_count} nhiệm vụ quá hạn ảnh hưởng kỷ luật tiến độ."]
-            elif "quản lý" in name:
-                ratio = 0.88 if role in {"LEADER", "MANAGER"} else 0.8
-                reasons = ["Đánh giá quản lý điều hành theo vai trò và tiến độ nhóm nhiệm vụ."]
-            elif "đạo đức" in name:
-                ratio = 0.92
-                reasons = ["Chưa ghi nhận vi phạm đạo đức công vụ trong dữ liệu PoC."]
+                ratio = 0.95
+                reasons = ["Chấp hành tốt nội quy, không vi phạm kỷ luật đạo đức công vụ."]
+            elif "phối hợp" in name:
+                ratio = 0.9
+                reasons = ["Có tinh thần trách nhiệm, phối hợp tốt với các phòng ban liên quan."]
             else:
-                ratio = 0.86
-                reasons = ["Ghi nhận mức tham gia phát triển năng lực ở mức khá."]
+                ratio = 0.85
+                reasons = ["Tích cực học hỏi, cải tiến phương pháp làm việc và nâng cao nghiệp vụ."]
             rows.append({"group_name": group_name, "max_score": max_score, "score": round(max_score * ratio, 1), "reasons": reasons})
         return rows
