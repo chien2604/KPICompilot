@@ -68,45 +68,8 @@ class OpenAILLMClient(BaseLLMClient):
         )
         return response.choices[0].message.content or ""
 
-class GroqLLMClient(BaseLLMClient):
-    def __init__(self) -> None:
-        from openai import OpenAI
-
-        settings = get_settings()
-        self.model = settings.groq_model
-        self.client = OpenAI(
-            api_key=settings.groq_api_key,
-            base_url="https://api.groq.com/openai/v1",
-        )
-
-    def complete(self, prompt: str, system_prompt: str | None = None) -> str:
-        kwargs = {}
-        if _expects_json(prompt, system_prompt):
-            kwargs["response_format"] = {"type": "json_object"}
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt or "Bạn là trợ lý AI trả lời tiếng Việt."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.2,
-            **kwargs,
-        )
-        return response.choices[0].message.content or ""
-
-
-def _expects_json(prompt: str, system_prompt: str | None = None) -> bool:
-    text = f"{system_prompt or ''}\n{prompt}".lower()
-    return "trả về json" in text or "json hợp lệ" in text or '"relevance_score"' in text or "compatibility_score" in text
-
-
 def get_llm_client() -> BaseLLMClient:
     settings = get_settings()
-    if settings.groq_api_key:
-        try:
-            return GroqLLMClient()
-        except Exception:
-            pass
     if settings.openai_api_key:
         try:
             return OpenAILLMClient()

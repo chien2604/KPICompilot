@@ -1,0 +1,4 @@
+Tên nhiệm vụ: {task_name}
+Mô tả / Yêu cầu: {task_description}
+
+Hãy sinh danh sách tiêu chí kiểm tra từ các yêu cầu trên.

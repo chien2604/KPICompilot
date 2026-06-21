@@ -1,0 +1,13 @@
+=== DANH SÁCH TIÊU CHÍ CẦN KIỂM TRA ===
+{checklist_section}
+
+=== THÔNG TIN BỔ SUNG ===
+Người thực hiện: {uploader_name} | Phòng ban: {department} | Hạn chót: {task_deadline}
+
+=== NỘI DUNG TÀI LIỆU MINH CHỨNG ===
+Tên file: {filename} | Loại: {file_type}
+
+{content_section}
+
+=== YÊU CẦU ===
+Kiểm tra từng tiêu chí trên so với nội dung tài liệu và trả về JSON.

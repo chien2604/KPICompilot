@@ -1,67 +1,22 @@
+import difflib
 import json
 import logging
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from ai_layer.llm_client import BaseLLMClient, get_llm_client
 
 logger = logging.getLogger(__name__)
 
-# ── Phase 1: Sinh checklist từ yêu cầu ────────────────
-_P1_SYSTEM = """Bạn là chuyên gia phân tích yêu cầu nhiệm vụ trong hệ thống KPI nhà nước Việt Nam.
-Nhiệm vụ của bạn: đọc Tên nhiệm vụ + Mô tả/Yêu cầu và sinh ra danh sách tiêu chí kiểm tra.
+_PROMPTS = Path(__file__).parent / "prompts"
 
-QUY TẮC BẮT BUỘC:
-1. Mỗi tiêu chí phải bóc tách TRỰC TIẾP từ 1 yêu cầu trong Mô tả nhiệm vụ. Không được tự thêm.
-2. Số tiêu chí = số yêu cầu rõ ràng trong Mô tả nhiệm vụ (1-đối-1).
-3. Nếu Mô tả là đoạn văn, hãy tách từng ý/điều kiện thành 1 tiêu chí riêng.
-4. Mỗi tiêu chí gồm: item (tên), importance (core/minor), deduction (30-40 cho core, 10-15 cho minor).
-
-Chỉ trả về JSON, không giải thích:
-{"checklist": [{"item": "...", "importance": "core|minor", "deduction": <int>}]}"""
-
-_P1_USER = """Tên nhiệm vụ: {task_name}
-Mô tả / Yêu cầu: {task_description}
-
-Hãy sinh danh sách tiêu chí kiểm tra từ các yêu cầu trên."""
-
-# ── Phase 2: Đối chiếu checklist với tài liệu ───────────────────────────────
-_P2_SYSTEM = """Bạn là AI thẩm định tài liệu minh chứng KPI.
-Bạn nhận được một danh sách tiêu chí kiểm tra (do hệ thống sinh ra từ yêu cầu nhiệm vụ) và nội dung tài liệu.
-Nhiệm vụ: kiểm tra từng tiêu chí xem tài liệu có đáp ứng không.
-
-QUY TẮC BẮT BUỘC:
-1. KHÔNG ĐƯỢC thêm, bớt, hay sửa tên tiêu chí — chỉ điền met/note cho mỗi item được cung cấp.
-2. Khi viết note: PHẢI trích dẫn trực tiếp từ tài liệu. Nếu không tìm thấy → "Không tìm thấy trong tài liệu".
-3. NGHIÊM CẤM bịa ra thông tin không có trong văn bản.
-4. compatibility_score = 100 - tổng deduction của các item met=false (tối thiểu 0).
-5. Nếu tất cả item core đều met=false → score = 0.
-
-Trả về JSON:
-{
-  "compatibility_score": <int 0-100>,
-  "checklist": [
-    {"item": "<giữ nguyên tên item>", "met": <true|false>, "note": "<trích dẫn từ văn bản>", "deduction": <int>, "importance": "<core|minor>"}
-  ],
-  "ai_comment": "<2-4 câu, chỉ rõ tiêu chí nào không đạt và điểm trừ>",
-  "strengths": ["..."],
-  "weaknesses": ["..."]
-}"""
-
-_P2_USER = """=== DANH SÁCH TIÊU CHÍ CẦN KIỂM TRA ===
-{checklist_section}
-
-=== THÔNG TIN BỔ SUNG ===
-Người thực hiện: {uploader_name} | Phòng ban: {department} | Hạn chót: {task_deadline}
-
-=== NỘI DUNG TÀI LIỆU MINH CHỨNG ===
-Tên file: {filename} | Loại: {file_type}
-
-{content_section}
-
-=== YÊU CẦU ===
-Kiểm tra từng tiêu chí trên so với nội dung tài liệu và trả về JSON."""
+# ── Load prompts từ file chung (ai_layer/prompts/) ──────────────────────────
+_P1_SYSTEM = (_PROMPTS / "evidence_phase1_system.txt").read_text(encoding="utf-8")
+_P1_USER   = (_PROMPTS / "evidence_phase1_user.txt").read_text(encoding="utf-8")
+_P2_SYSTEM = (_PROMPTS / "evidence_phase2_system.txt").read_text(encoding="utf-8")
+_P2_USER   = (_PROMPTS / "evidence_phase2_user.txt").read_text(encoding="utf-8")
 
 
 def _extract_requirements(task_description: str) -> list[str]:
@@ -126,13 +81,8 @@ def _parse_ai_response(raw: str, task_name: str = "", requirements: list[str] = 
                     except (ValueError, TypeError):
                         pass
 
-            if not bool(item.get("met", False)) and deduction <= 0:
-                deduction = 20
-
-            if importance == "core" and deduction < 30:
-                deduction = 30
-            elif importance != "core" and not bool(item.get("met", False)) and deduction < 10:
-                deduction = 10
+            if deduction <= 0:
+                deduction = 30 if importance == "core" else 10
 
             checklist.append({
                 "item": str(item.get("item", "Tiêu chí không rõ")),
@@ -141,31 +91,64 @@ def _parse_ai_response(raw: str, task_name: str = "", requirements: list[str] = 
                 "deduction": max(0, deduction),
                 "importance": importance,
             })
-
-    _STOP = {"tài", "liệu", "có", "và", "là", "của", "trong", "về", "cho", "với", "được", "theo", "đầy", "đủ", "thông", "tin", "các", "một", "khi", "hoặc", "nếu", "này", "đúng", "hợp", "lệ", "phù", "hợp", "rõ", "ràng", "đã", "chưa", "bị", "được", "phải", "cần", "nên", "không", "kết", "quả"}
-
-    def _kw(text: str) -> set[str]:
-        return {t for t in re.findall(r'\w{3,}', text.lower()) if t not in _STOP}
-
     req_pool = list(requirements) if requirements else []
-    if task_name:
+    if task_name and task_name not in req_pool:
         req_pool.insert(0, task_name)
 
-    all_req_keywords = [_kw(r) for r in req_pool]
-    all_req_kw_union = set().union(*all_req_keywords) if all_req_keywords else set()
+    def _find_matching_requirement(item_name: str, pool: list[str]) -> str | None:
+        item_clean = item_name.strip().lower()
+        _STOP = {"tài", "liệu", "có", "và", "là", "của", "trong", "về", "cho", "với", "được", "theo", "đầy", "đủ", "thông", "tin", "các", "một", "khi", "hoặc", "nếu", "này", "đúng", "hợp", "lệ", "phù", "hợp", "rõ", "ràng", "đã", "chưa", "bị", "được", "phải", "cần", "nên", "không", "kết", "quả"}
+        def _kw(text: str) -> set[str]:
+            return {t for t in re.findall(r'\w{3,}', text.lower()) if t not in _STOP}
+            
+        item_keywords = _kw(item_clean)
+        best_ratio = 0.0
+        best_req = None
+        for req in pool:
+            req_clean = req.strip().lower()
+            if item_clean == req_clean:
+                return req
+            if req_clean in item_clean or item_clean in req_clean:
+                ratio = 0.85 + 0.1 * (min(len(req_clean), len(item_clean)) / max(len(req_clean), len(item_clean), 1))
+            else:
+                ratio = difflib.SequenceMatcher(None, item_clean, req_clean).ratio()
+            
+            # Boost ratio if they share keywords
+            req_keywords = _kw(req_clean)
+            shared_keywords = item_keywords & req_keywords
+            if shared_keywords:
+                ratio += min(0.3, 0.15 * len(shared_keywords))
+                
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_req = req
+        if best_ratio >= 0.45:
+            return best_req
+        return None
 
     sanitized_checklist = []
     for it in checklist:
-        item_kw = _kw(it["item"])
-        if len(req_pool) >= 2 and all_req_keywords:
-            if not any(bool(item_kw & req_kw) for req_kw in all_req_keywords):
-                continue
-        elif all_req_kw_union and not (item_kw & all_req_kw_union):
-            continue
-        sanitized_checklist.append(it)
+        matching_req = _find_matching_requirement(it["item"], req_pool)
+        if matching_req:
+            it["item"] = matching_req
+            sanitized_checklist.append(it)
 
     if not sanitized_checklist:
         sanitized_checklist = [{"item": "Nội dung phù hợp với nhiệm vụ", "met": True, "note": "", "deduction": 0, "importance": "minor"}]
+
+    # Proportionally scale deductions if total raw sum exceeds 100
+    total_raw_deductions = sum(it["deduction"] for it in sanitized_checklist)
+    if total_raw_deductions > 100:
+        scaled_sum = 0
+        for it in sanitized_checklist:
+            scaled = (it["deduction"] / total_raw_deductions) * 100
+            it["deduction"] = max(1, int(round(scaled)))
+            scaled_sum += it["deduction"]
+            
+        diff = 100 - scaled_sum
+        if diff != 0 and sanitized_checklist:
+            largest_item = max(sanitized_checklist, key=lambda x: x["deduction"])
+            largest_item["deduction"] = max(1, largest_item["deduction"] + diff)
 
     total_deductions = sum(it["deduction"] for it in sanitized_checklist if not it["met"])
     all_failed = all(not it["met"] for it in sanitized_checklist)
@@ -236,6 +219,21 @@ class EvidenceAnalyzer:
                 pass
 
             requirements = _extract_requirements(task_description or task_title)
+
+            def _is_valid_p1_item(item_name: str, pool: list[str]) -> bool:
+                item_clean = item_name.strip().lower()
+                for req in pool:
+                    req_clean = req.strip().lower()
+                    if req_clean in item_clean or item_clean in req_clean:
+                        return True
+                    ratio = difflib.SequenceMatcher(None, item_clean, req_clean).ratio()
+                    if ratio >= 0.45:
+                        return True
+                return False
+
+            if p1_items and requirements:
+                p1_items = [item for item in p1_items if _is_valid_p1_item(item.get("item", ""), requirements)]
+
             if not p1_items:
                 p1_items = [{"item": req, "importance": "core", "deduction": 30} for req in requirements]
 
@@ -246,8 +244,8 @@ class EvidenceAnalyzer:
             )
 
             logger.info("[Phase 2] Verifying checklist against document")
-            trimmed_text = evidence_text[:8000]
-            if len(evidence_text) > 8000:
+            trimmed_text = evidence_text[:32000]
+            if len(evidence_text) > 32000:
                 trimmed_text += "\n\n[... nội dung bị cắt bớt ...]"
 
             p2_user = _P2_USER.format(
