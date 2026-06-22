@@ -1,4 +1,4 @@
-import { Button, Card, List, Popconfirm, Space, Tag, Tooltip, Typography, message } from 'antd';
+import { Button, Card, List, Space, Tag, Tooltip, Typography, message } from 'antd';
 import { DeleteOutlined, EditOutlined, FileTextOutlined, FileWordOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { downloadBlob, reportApi } from '../api/reportApi';
@@ -127,22 +127,14 @@ export default function ReportsPage() {
                 onClick={() => setSelected(item)}
                 className={`clickable ${selected?.id === item.id ? 'report-list-item--active' : ''}`}
                 actions={[
-                  <Popconfirm
+                  <Button
                     key="delete"
-                    title="Xoá báo cáo này?"
-                    okText="Xoá"
-                    cancelText="Huỷ"
-                    onConfirm={(e) => { e?.stopPropagation?.(); removeReport(item); }}
-                    onCancel={(e) => e?.stopPropagation?.()}
-                  >
-                    <Button
-                      size="small"
-                      danger
-                      type="text"
-                      icon={<DeleteOutlined />}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </Popconfirm>,
+                    size="small"
+                    danger
+                    type="text"
+                    icon={<DeleteOutlined />}
+                    onClick={(e) => { e.stopPropagation(); removeReport(item); }}
+                  />,
                 ]}
               >
                 {item.report_type} - {item.period}

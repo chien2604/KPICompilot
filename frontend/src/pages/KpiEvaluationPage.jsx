@@ -1,6 +1,6 @@
 import { Button, Card, Descriptions, Progress, Space, Table, Typography, message, Spin } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { kpiApi } from '../api/kpiApi';
@@ -35,6 +35,18 @@ export default function KpiEvaluationPage() {
       setComputing(false);
     }
   };
+
+  // Track which userIds have already been auto-computed
+  const computedUsers = useRef(new Set());
+
+  useEffect(() => {
+    if (!loading && score && !computedUsers.current.has(userId)) {
+      computedUsers.current.add(userId);
+      recompute();
+    } else if (!loading && score && computedUsers.current.has(userId)) {
+      console.log(`[KPI] userId=${userId} đã được tính trước đó, bỏ qua auto-recompute`);
+    }
+  }, [loading, score, userId]);
 
   const rows = score?.breakdown_json?.breakdown || [];
   return (
@@ -79,16 +91,19 @@ export default function KpiEvaluationPage() {
                 { title: 'Trọng số', dataIndex: 'max_score', width: 100, align: 'center' },
                 {
                   title: 'Điểm quy đổi thực tế', dataIndex: 'score', width: 160, align: 'center', render: (val, record) => (
-                    <Typography.Text type={val < record.max_score * 0.7 ? 'danger' : 'success'}>
+                    <span style={{ fontWeight: 600 }}>
                       {val} / {record.max_score}
-                    </Typography.Text>
+                    </span>
                   )
                 },
                 {
                   title: 'Lý do', dataIndex: 'reasons', render: (items) => (
-                    <ul style={{ paddingLeft: 20, margin: 0 }}>
-                      {items?.map((item, idx) => <li key={idx}>{item}</li>)}
-                    </ul>
+                    <div>
+                      {items?.map((item, idx) => {
+                        const cleaned = item.replace(/^[\s•\-\*]+/, '').trim();
+                        return <div key={idx} style={{ marginBottom: 4 }}>{cleaned}</div>;
+                      })}
+                    </div>
                   )
                 },
               ]}

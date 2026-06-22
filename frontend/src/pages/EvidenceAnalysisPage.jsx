@@ -1,7 +1,7 @@
-import { Button, Card, Descriptions, Progress, Space, Typography, List, Tag, Row, Col, Badge } from 'antd';
-import { ReloadOutlined, CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
+import { Breadcrumb, Button, Card, Descriptions, Progress, Space, Typography, List, Tag, Row, Col, Badge } from 'antd';
+import { ReloadOutlined, CheckCircleFilled, CloseCircleFilled, HomeOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { evidenceApi } from '../api/evidenceApi';
 
 const { Title, Text, Paragraph } = Typography;
@@ -46,6 +46,10 @@ export default function EvidenceAnalysisPage() {
 
   return (
     <div className="page">
+      <Breadcrumb style={{ marginBottom: 12 }} items={[
+        { title: <Link to="/evidences"><HomeOutlined /> Minh chứng</Link> },
+        { title: 'AI Phân tích Minh chứng' },
+      ]} />
       <div className="page-title-row" style={{ marginBottom: 16 }}>
         <Title level={3}>AI Phân tích Minh chứng</Title>
         <Button icon={<ReloadOutlined />} onClick={analyze} type="primary" loading={analyzing}>
@@ -110,7 +114,7 @@ export default function EvidenceAnalysisPage() {
             {/* Checklist and Strengths/Weaknesses Row */}
             <Row gutter={[16, 16]}>
               <Col xs={24} md={12}>
-                <Card title="✅ Checklist kiểm tra" style={{ height: '100%' }} bodyStyle={{ padding: 12 }}>
+                <Card title="Checklist kiểm tra" style={{ height: '100%' }} bodyStyle={{ padding: 12 }}>
                   <List
                     size="small"
                     dataSource={analysis.checklist || []}
@@ -135,7 +139,7 @@ export default function EvidenceAnalysisPage() {
               </Col>
               
               <Col xs={24} md={12}>
-                <Card title="💪 Điểm mạnh & Cần cải thiện" style={{ height: '100%' }}>
+                <Card title="Điểm mạnh & Cần cải thiện" style={{ height: '100%' }}>
                   <div style={{ marginBottom: 16 }}>
                     <Text strong style={{ color: '#10b981', textTransform: 'uppercase', fontSize: 12 }}>Điểm mạnh</Text>
                     <List

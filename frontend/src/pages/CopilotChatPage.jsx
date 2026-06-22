@@ -46,7 +46,9 @@ export default function CopilotChatPage() {
       if (rows[0]) {
         await loadConversation(rows[0].conversation_id, userId);
       } else {
-        await createConversation(userId);
+        // Don't create a default conversation — start with empty state
+        setActiveId(null);
+        setMessages([]);
       }
     } catch (error) {
       message.error('Không tải được lịch sử hội thoại');
@@ -79,6 +81,7 @@ export default function CopilotChatPage() {
     try {
       let conversationId = activeId;
       if (!conversationId) {
+        // Lazy creation: only create conversation on first message
         const conversation = await createConversation(userId);
         conversationId = conversation.conversation_id;
       }
@@ -116,7 +119,9 @@ export default function CopilotChatPage() {
         if (rows[0]) {
           await loadConversation(rows[0].conversation_id, userId);
         } else {
-          await createConversation(userId);
+          // No conversations left — reset to empty state
+          setActiveId(null);
+          setMessages([]);
         }
       }
     } catch (error) {
