@@ -24,10 +24,6 @@ class Settings(BaseSettings):
     kuzu_db_path: Path = BASE_DIR / "storage" / "kuzu_db"
     cors_origins: str = "http://localhost:5180,http://127.0.0.1:5180"
 
-    # ── PDF render service (Node.js + Puppeteer) ──────────────────────
-    pdf_service_url: str = "http://localhost:4100"
-    pdf_service_api_key: str | None = None
-
     model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", env_file_encoding="utf-8", extra="ignore")
 
 

@@ -405,4 +405,20 @@ body {
   background: #e8f3fc;
   border-radius: 6px;
 }
+
+/* Định dạng tiêu ngữ hành chính và tiêu đề chính trong báo cáo */
+.report-content p[style*="text-align: center"],
+.report-content p[style*="text-align:center"] {
+  font-size: 16px !important;
+  line-height: 1.8 !important;
+  margin-bottom: 20px !important;
+}
+
+.report-content h2[style*="text-align: center"],
+.report-content h2[style*="text-align:center"] {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  margin-top: 10px !important;
+  margin-bottom: 24px !important;
+}
  

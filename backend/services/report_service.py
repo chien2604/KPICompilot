@@ -21,7 +21,7 @@ class ReportService:
             report_type=report_type,
             period=period,
             department_id=department_id,
-            content=result["html"],
+            content=result["content"],
             summary_json={**data, "_source": result["_source"]},
             created_by=created_by,
         )
@@ -31,7 +31,7 @@ class ReportService:
         return report
 
     def update_content(self, report: Report, content: str) -> Report:
-        """Cập nhật toàn bộ HTML của báo cáo (tính năng Edit — sửa trực tiếp HTML)."""
+        """Cập nhật toàn bộ Markdown của báo cáo (tính năng Edit — sửa trực tiếp Markdown)."""
         report.content = content
         self.db.commit()
         self.db.refresh(report)
@@ -40,10 +40,6 @@ class ReportService:
     def delete(self, report: Report) -> None:
         self.db.delete(report)
         self.db.commit()
-
-    def render_pdf_html(self, report: Report) -> str:
-        """Bọc content (HTML fragment) trong 1 trang HTML đầy đủ kèm CSS in ấn, để gửi sang PDF render service."""
-        return self._wrap_print_document(report.content)
 
     def _collect_data(self, period: str, department_id: int | None) -> dict:
         task_query = self.db.query(Task)
@@ -100,17 +96,4 @@ class ReportService:
             "slow_tasks": slow_tasks,
             "risk_users": [{"name": r[0], "department": r[1], "score": r[2], "risk": r[3]} for r in risk_users],
         }
-
-    @staticmethod
-    def _wrap_print_document(content_html: str) -> str:
-        css = """
-        body { font-family: 'Times New Roman', serif; color: #111; margin: 0; padding: 28mm 22mm; font-size: 13px; line-height: 1.6; }
-        h2 { font-size: 16px; margin: 12px 0; }
-        h3 { font-size: 13px; margin: 16px 0 8px; }
-        p { margin: 6px 0; }
-        table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 12.5px; }
-        table th, table td { border: 1px solid #444; padding: 6px 8px; text-align: left; }
-        table th { background: #f1f1f1; }
-        ul, ol { padding-left: 22px; }
-        """
-        return f"<!doctype html><html lang='vi'><head><meta charset='utf-8'/><style>{css}</style></head><body>{content_html}</body></html>"
+

@@ -1,6 +1,7 @@
 import { Button, Empty, Input, List } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 
 export default function ChatBox({ messages = [], onSend, loading }) {
   const [value, setValue] = useState('');
@@ -17,7 +18,13 @@ export default function ChatBox({ messages = [], onSend, loading }) {
       <List
         dataSource={messages}
         locale={{ emptyText: <Empty description="Bắt đầu cuộc hội thoại mới" /> }}
-        renderItem={(item) => <List.Item className={`chatbox__msg chatbox__msg--${item.role}`}>{item.content}</List.Item>}
+        renderItem={(item) => (
+          <List.Item className={`chatbox__msg chatbox__msg--${item.role}`}>
+            <div className="ai-markdown-container" style={{ width: '100%' }}>
+              <ReactMarkdown>{item.content || ''}</ReactMarkdown>
+            </div>
+          </List.Item>
+        )}
       />
       <Input.Search
         value={value}

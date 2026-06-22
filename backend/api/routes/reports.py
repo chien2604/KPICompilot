@@ -5,19 +5,21 @@ from ai_layer.report_docx_renderer import render_report_docx
 from db.database import get_db
 from db.models.reports import Report
 from schemas.reports import ReportContentUpdateIn, ReportGenerateIn
-from services.pdf_client import PDFRenderError, PDFServiceClient
 from services.report_service import ReportService
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
 def report_to_dict(report: Report) -> dict:
+    import markdown
+    content_html = markdown.markdown(report.content or "", extensions=["tables"])
     return {
         "id": report.id,
         "report_type": report.report_type,
         "period": report.period,
         "department_id": report.department_id,
         "content": report.content,
+        "content_html": content_html,
         "summary_json": report.summary_json,
         "created_by": report.created_by,
         "created_at": report.created_at,
@@ -49,7 +51,7 @@ def get_report(report_id: int, db: Session = Depends(get_db)) -> dict:
 
 @router.patch("/{report_id}")
 def update_report(report_id: int, payload: ReportContentUpdateIn, db: Session = Depends(get_db)) -> dict:
-    """Sửa nội dung báo cáo (tính năng Edit) — nhận toàn bộ HTML mới."""
+    """Sửa nội dung báo cáo (tính năng Edit) — nhận toàn bộ Markdown mới."""
     report = _get_report_or_404(report_id, db)
     updated = ReportService(db).update_content(report, payload.content)
     return report_to_dict(updated)
@@ -71,21 +73,4 @@ def export_report_docx(report_id: int, db: Session = Depends(get_db)) -> Respons
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-@router.get("/{report_id}/export/pdf")
-def export_report_pdf(report_id: int, db: Session = Depends(get_db)) -> Response:
-    report = _get_report_or_404(report_id, db)
-    service = ReportService(db)
-    html = service.render_pdf_html(report)
-    try:
-        pdf_bytes = PDFServiceClient().render_pdf(html)
-    except PDFRenderError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    filename = f"bao-cao-{report.period}-{report.id}.pdf"
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    )

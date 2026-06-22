@@ -123,6 +123,9 @@ def _add_paragraph_with_inline_formatting(document: Document, tag: Tag, style: s
             run = paragraph.add_run(child.get_text())
             run.italic = True
             _apply_run_font_black(run)
+        elif isinstance(child, Tag) and child.name == "br":
+            run = paragraph.add_run()
+            run.add_break()
         else:
             text = child.get_text() if isinstance(child, Tag) else str(child)
             if text.strip():
@@ -185,9 +188,12 @@ def _render_table(document: Document, table_tag: Tag) -> None:
     document.add_paragraph()
 
 
-def render_report_docx(html: str) -> bytes:
-    """Parse HTML fragment báo cáo và render ra bytes của file .docx."""
-    soup = BeautifulSoup(html or "", "html.parser")
+def render_report_docx(markdown_content: str) -> bytes:
+    """Parse Markdown báo cáo, convert sang HTML và render ra bytes của file .docx."""
+    import markdown
+    html = markdown.markdown(markdown_content or "", extensions=["tables"])
+    wrapped_html = f'<div class="report">{html}</div>'
+    soup = BeautifulSoup(wrapped_html, "html.parser")
 
     document = Document()
 
@@ -205,16 +211,26 @@ def render_report_docx(html: str) -> bytes:
         _force_style_font_black(document, style_name)
     document.styles["Normal"].font.size = Pt(13)
 
-    # Lấy các node cấp cao nhất theo thứ tự xuất hiện trong HTML (không đào sâu lồng nhau
-    # ngoài những gì các hàm con tự xử lý, vì prompt yêu cầu cấu trúc HTML phẳng/đơn giản).
-    body = soup.body if soup.body else soup
-    for tag in body.find_all(["p", "h2", "h3", "table", "ul", "ol"], recursive=False):
+    # Lấy các node cấp cao nhất. Hỗ trợ trường hợp LLM bọc toàn bộ trong <div class="report">
+    container = soup.find("div", class_="report")
+    if not container:
+        container = soup.body if soup.body else soup
+        
+    for tag in container.find_all(["p", "h2", "h3", "table", "ul", "ol"], recursive=False):
         if tag.name == "p":
-            _add_paragraph_with_inline_formatting(document, tag)
+            paragraph = _add_paragraph_with_inline_formatting(document, tag)
+            if "CỘNG HÒA XÃ HỘI" in tag.get_text():
+                # Tiêu ngữ hành chính dùng cỡ chữ 14
+                for run in paragraph.runs:
+                    run.font.size = Pt(14)
         elif tag.name == "h2":
             paragraph = document.add_heading(tag.get_text(strip=True), level=1)
             if _is_centered(tag):
                 paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            if "BÁO CÁO GIAO BAN" in tag.get_text():
+                for run in paragraph.runs:
+                    run.font.size = Pt(16)
+                    run.bold = True
             _force_all_runs_in_paragraph(paragraph)
         elif tag.name == "h3":
             paragraph = document.add_heading(tag.get_text(strip=True), level=2)

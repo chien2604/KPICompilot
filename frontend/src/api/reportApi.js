@@ -14,10 +14,6 @@ export const reportApi = {
   remove: (id) => apiClient.delete(`/reports/${id}`).then((res) => res.data),
   get: (id) => apiClient.get(`/reports/${id}`).then((res) => res.data),
 
-  // Render PDF qua Puppeteer cũng có thể chậm hơn timeout mặc định, đặc biệt
-  // lần đầu khởi động Chromium — tăng timeout riêng cho export PDF.
-  exportPdf: (id) =>
-    apiClient.get(`/reports/${id}/export/pdf`, { responseType: 'blob', timeout: 60000 }).then((res) => res.data),
   exportDocx: (id) =>
     apiClient.get(`/reports/${id}/export/docx`, { responseType: 'blob' }).then((res) => res.data),
 };

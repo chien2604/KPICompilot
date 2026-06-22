@@ -11,7 +11,7 @@ class ReportGenerateIn(BaseModel):
 
 
 class ReportContentUpdateIn(BaseModel):
-    """Payload cho tính năng Edit báo cáo. Sửa trực tiếp toàn bộ HTML."""
+    """Payload cho tính năng Edit báo cáo. Sửa trực tiếp toàn bộ Markdown."""
     content: str
 
 
@@ -21,6 +21,7 @@ class ReportOut(BaseModel):
     period: str
     department_id: int | None = None
     content: str
+    content_html: str | None = None
     summary_json: dict
     created_by: int | None = None
     created_at: datetime

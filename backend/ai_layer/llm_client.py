@@ -11,7 +11,7 @@ class BaseLLMClient(ABC):
 
 
 class MockLLMClient(BaseLLMClient):
-    def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
         if "Tóm tắt câu hỏi dưới đây thành tiêu đề ngắn" in prompt:
             question = prompt.split("Câu hỏi:", 1)[-1].strip()
             words = question.replace("?", "").replace(".", "").split()
@@ -64,9 +64,10 @@ class OpenAILLMClient(BaseLLMClient):
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
             default_headers=default_headers or None,
+            timeout=120.0,  # Tăng timeout của LLM lên 120 giây (2 phút)
         )
 
-    def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
         import hashlib
         cache_key = hashlib.md5(f"{prompt}||{system_prompt}".encode("utf-8")).hexdigest()
         global _LLM_CACHE
@@ -76,7 +77,7 @@ class OpenAILLMClient(BaseLLMClient):
             return _LLM_CACHE[cache_key]
 
         kwargs = {}
-        if _expects_json(prompt, system_prompt):
+        if expect_json or _expects_json(prompt, system_prompt):
             kwargs["response_format"] = {"type": "json_object"}
         response = self.client.chat.completions.create(
             model=self.model,
@@ -94,7 +95,10 @@ class OpenAILLMClient(BaseLLMClient):
 
 def _expects_json(prompt: str, system_prompt: str | None) -> bool:
     content = (prompt + " " + (system_prompt or "")).lower()
-    return "json" in content
+    # Tránh tự động nhận diện nhầm khi prompt chứa dữ liệu JSON dumps hoặc cấm hiển thị JSON
+    if "dữ liệu hệ thống" in content or "graph rag" in content or "không hiển thị json" in content:
+        return False
+    return any(x in content for x in ["trả về json", "định dạng json", "cấu trúc json", "format: json", "json_object", "return json"])
 
 
 def get_llm_client() -> BaseLLMClient:
