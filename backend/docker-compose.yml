@@ -16,5 +16,16 @@ services:
       timeout: 5s
       retries: 5
 
+  pdf-service:
+    build:
+      context: ../pdf-service
+    container_name: ai_kpi_pdf_service
+    environment:
+      PORT: 4100
+      PDF_SERVICE_API_KEY: ""
+    ports:
+      - "4100:4100"
+    restart: unless-stopped
+
 volumes:
   postgres_data:

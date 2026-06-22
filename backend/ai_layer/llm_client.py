@@ -6,7 +6,7 @@ from core.config import get_settings
 
 class BaseLLMClient(ABC):
     @abstractmethod
-    def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
         raise NotImplementedError
 
 
@@ -31,7 +31,20 @@ class MockLLMClient(BaseLLMClient):
                 ensure_ascii=False,
             )
         if "báo cáo giao ban" in prompt.lower():
-            return "<h2>Báo cáo giao ban</h2><p>Tình hình chung ổn định, cần tập trung xử lý các nhiệm vụ quá hạn và nhóm cán bộ có KPI rủi ro.</p>"
+            # Trả về Markdown (có quốc hiệu tiêu ngữ), không phải HTML, vì `content`
+            # giờ được hiểu là Markdown thuần — xem services/report_service.py.
+            return (
+                "::: {custom-style=\"Centered\"}\n"
+                "**CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM**\n\n"
+                "**Độc lập - Tự do - Hạnh phúc**\n"
+                ":::\n\n"
+                "---\n\n"
+                "# BÁO CÁO GIAO BAN\n\n"
+                "## 1. Tình hình chung\n\n"
+                "- Tình hình chung ổn định, cần tập trung xử lý các nhiệm vụ quá hạn và nhóm cán bộ có KPI rủi ro.\n\n"
+                "## 5. Kiến nghị\n\n"
+                "1. Đôn đốc xử lý các nhiệm vụ quá hạn (dữ liệu mock demo khi chưa cấu hình LLM thật)."
+            )
         return "Dựa trên dữ liệu hiện có, hệ thống ghi nhận một số nhiệm vụ chậm tiến độ và nhóm KPI rủi ro cần lãnh đạo theo dõi. Đây là phản hồi mock để demo khi chưa cấu hình LLM thật."
 
 

@@ -1,0 +1,19 @@
+{
+  "name": "ai-kpi-pdf-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Microservice render PDF từ HTML bằng Puppeteer, dùng cho AI KPI Copilot",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "cross-env PORT=4100 node server.js",
+    "dev": "cross-env PORT=4100 node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "puppeteer": "^23.11.1"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3"
+  }
+}
