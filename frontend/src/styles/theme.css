@@ -306,3 +306,9 @@ body {
     flex-direction: column;
   }
 }
+ 
+.report-list-item--active {
+  background: #e8f3fc;
+  border-radius: 6px;
+}
+ 

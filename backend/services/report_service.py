@@ -71,7 +71,7 @@ class ReportService:
             self.db.query(Task, Department.name, TaskAssignment.user_id)
             .outerjoin(Department, Department.id == Task.department_id)
             .outerjoin(TaskAssignment, TaskAssignment.task_id == Task.id)
-            .filter(Task.status.in_(["OVERDUE", "IN_PROGRESS", "NOT_STARTED"]))
+            .filter(Task.status.in_(["Quá hạn", "Đang thực hiện", "Chưa bắt đầu"]))
         )
         if department_id:
             slow_task_query = slow_task_query.filter(Task.department_id == department_id)
@@ -106,7 +106,7 @@ class ReportService:
         css = """
         body { font-family: 'Times New Roman', serif; color: #111; margin: 0; padding: 28mm 22mm; font-size: 13px; line-height: 1.6; }
         h2 { font-size: 16px; margin: 12px 0; }
-        h3 { font-size: 14px; margin: 16px 0 8px; }
+        h3 { font-size: 13px; margin: 16px 0 8px; }
         p { margin: 6px 0; }
         table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 12.5px; }
         table th, table td { border: 1px solid #444; padding: 6px 8px; text-align: left; }
