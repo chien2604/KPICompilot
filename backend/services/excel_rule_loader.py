@@ -3,7 +3,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
-from db.models.kpi import DocumentTypeRule, KPICriterion, KPITemplate
+from db.models.kpi import DocumentTypeRule, KPICriterion, KPITemplate,KPIScore
 
 
 ROLE_TEMPLATES = {
@@ -54,6 +54,9 @@ class ExcelRuleLoader:
     def seed(self) -> None:
         self._touch_excel_files()
         self.db.query(KPICriterion).delete()
+        # Thêm dòng này trước dòng xóa KPITemplate
+        self.db.query(KPIScore).delete() 
+        self.db.query(KPITemplate).delete()
         self.db.query(KPITemplate).delete()
         self.db.query(DocumentTypeRule).delete()
         for code, spec in ROLE_TEMPLATES.items():

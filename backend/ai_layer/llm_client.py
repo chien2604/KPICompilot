@@ -11,7 +11,13 @@ class BaseLLMClient(ABC):
 
 
 class MockLLMClient(BaseLLMClient):
-    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
+    def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+        if "Tóm tắt câu hỏi dưới đây thành tiêu đề ngắn" in prompt:
+            question = prompt.split("Câu hỏi:", 1)[-1].strip()
+            words = question.replace("?", "").replace(".", "").split()
+            return " ".join(words[:8]) or "Hội thoại KPI"
+        if "Tóm tắt hội thoại" in prompt or "summary" in prompt.lower():
+            return "Người dùng đang trao đổi về KPI, tiến độ nhiệm vụ và các rủi ro cần lãnh đạo theo dõi."
         if "relevance_score" in prompt:
             return json.dumps(
                 {
@@ -60,9 +66,17 @@ class OpenAILLMClient(BaseLLMClient):
             default_headers=default_headers or None,
         )
 
-    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
+    def complete(self, prompt: str, system_prompt: str | None = None) -> str:
+        import hashlib
+        cache_key = hashlib.md5(f"{prompt}||{system_prompt}".encode("utf-8")).hexdigest()
+        global _LLM_CACHE
+        if "_LLM_CACHE" not in globals():
+            _LLM_CACHE = {}
+        if cache_key in _LLM_CACHE:
+            return _LLM_CACHE[cache_key]
+
         kwargs = {}
-        if expect_json:
+        if _expects_json(prompt, system_prompt):
             kwargs["response_format"] = {"type": "json_object"}
         response = self.client.chat.completions.create(
             model=self.model,
@@ -70,45 +84,21 @@ class OpenAILLMClient(BaseLLMClient):
                 {"role": "system", "content": system_prompt or "Bạn là trợ lý AI trả lời tiếng Việt."},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.2,
+            temperature=0.0,
+            seed=42,
             **kwargs,
         )
-        return response.choices[0].message.content or ""
+        result = response.choices[0].message.content or ""
+        _LLM_CACHE[cache_key] = result
+        return result
 
-class GroqLLMClient(BaseLLMClient):
-    def __init__(self) -> None:
-        from openai import OpenAI
-
-        settings = get_settings()
-        self.model = settings.groq_model
-        self.client = OpenAI(
-            api_key=settings.groq_api_key,
-            base_url="https://api.groq.com/openai/v1",
-        )
-
-    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
-        kwargs = {}
-        if expect_json:
-            kwargs["response_format"] = {"type": "json_object"}
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt or "Bạn là trợ lý AI trả lời tiếng Việt."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.2,
-            **kwargs,
-        )
-        return response.choices[0].message.content or ""
+def _expects_json(prompt: str, system_prompt: str | None) -> bool:
+    content = (prompt + " " + (system_prompt or "")).lower()
+    return "json" in content
 
 
 def get_llm_client() -> BaseLLMClient:
     settings = get_settings()
-    if settings.groq_api_key:
-        try:
-            return GroqLLMClient()
-        except Exception:
-            pass
     if settings.openai_api_key:
         try:
             return OpenAILLMClient()

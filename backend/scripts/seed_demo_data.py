@@ -59,6 +59,9 @@ def _clear(db) -> None:
         text(
             """
             TRUNCATE TABLE
+                conversation_summary,
+                messages,
+                conversations,
                 chat_logs,
                 reports,
                 kpi_scores,

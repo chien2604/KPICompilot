@@ -10,4 +10,10 @@ router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 
 @router.post("/message")
 def chatbot_message(payload: ChatbotMessageIn, db: Session = Depends(get_db)) -> dict:
-    return ChatbotService(db).answer(payload.user_id, payload.message, payload.month, payload.department_id)
+    return ChatbotService(db).answer(
+        user_id=payload.user_id,
+        message=payload.message,
+        month=payload.month,
+        department_id=payload.department_id,
+        conversation_id=payload.conversation_id,
+    )
