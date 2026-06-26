@@ -225,7 +225,9 @@ export default function EmployeeProfilePage() {
             </span>
           )}
         </div>
-        <TaskTable data={filteredTasks} />
+        <div>
+          <TaskTable data={filteredTasks} />
+        </div>
       </Card>
     </Space>
   );

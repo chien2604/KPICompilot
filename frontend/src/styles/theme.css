@@ -1322,17 +1322,17 @@ h3.ant-typography {
   font-size: 16px !important;
 }
 
-/* ── Table header — đậm rõ hơn ── */
+/* ── Table header — trắng chữ đen ── */
 .ant-table-thead > tr > th,
 .ant-table-thead > tr > td {
-  background: rgba(159, 108, 77, 0.12) !important;
-  color: rgb(159, 108, 77) !important;
+  background: #fff !important;
+  color: rgba(0, 0, 0, 0.88) !important;
   font-weight: 700 !important;
-  border-bottom: 2px solid rgba(159, 108, 77, 0.3) !important;
+  border-bottom: 2px solid #f0f0f0 !important;
 }
 
 .ant-table-thead > tr > th::before {
-  background-color: rgba(159, 108, 77, 0.25) !important;
+  background-color: #d9d9d9 !important;
 }
 
 /* ── KPI Evaluation page ── */
@@ -2091,4 +2091,17 @@ h3.ant-typography {
   font-size: 14px !important;
   line-height: 1.4 !important;
   overflow: visible !important;
+}
+
+/* Table header trắng chữ đen (dùng trong profile page) */
+.table-header-default .ant-table-thead > tr > th,
+.table-header-default .ant-table-thead > tr > td {
+  background: #fff !important;
+  color: rgba(0, 0, 0, 0.88) !important;
+  font-weight: 700 !important;
+  border-bottom: 2px solid #f0f0f0 !important;
+}
+
+.table-header-default .ant-table-thead > tr > th::before {
+  background-color: #d9d9d9 !important;
 }

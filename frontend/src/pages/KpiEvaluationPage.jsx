@@ -189,16 +189,15 @@ export default function KpiEvaluationPage() {
                   <Table.Summary.Cell index={3}>
                     <span style={{
                       display: 'inline-block',
-                      background: color + '20',
-                      borderColor: color,
-                      border: `1.5px solid ${color}`,
-                      color,
+                      background: '#fff',
+                      border: '1.5px solid #e5e7eb',
+                      color: 'rgba(0,0,0,0.88)',
                       fontWeight: 700,
                       fontSize: 15,
                       padding: '4px 14px',
                       borderRadius: 20,
                     }}>
-                      <TrophyOutlined style={{ marginRight: 6 }} />
+                      <TrophyOutlined style={{ marginRight: 6, color: color }} />
                       {score?.classification}
                     </span>
                   </Table.Summary.Cell>
