@@ -119,7 +119,7 @@ h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select {
 }
 
 .app-header {
-  background: #F84943 !important;
+  background: #C0392B !important;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1135,8 +1135,8 @@ h3.ant-typography {
 
 .profile-kpi-circle-wrap {
   position: relative;
-  width: 180px;
-  height: 180px;
+  width: 220px;
+  height: 220px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1525,7 +1525,7 @@ h3.ant-typography {
 }
 
 .chatbox2__avatar--assistant {
-  background: #F84943;
+  background: #C0392B;
   color: #fff;
 }
 
@@ -1877,7 +1877,7 @@ h3.ant-typography {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: #F84943;
+  background: #C0392B;
   color: #fff;
   border: none;
   cursor: grab;
@@ -1926,7 +1926,7 @@ h3.ant-typography {
 }
 
 .floating-copilot__header {
-  background: #F84943;
+  background: #C0392B;
   color: #fff;
   padding: 14px 16px;
   display: flex;
@@ -2001,7 +2001,7 @@ h3.ant-typography {
   flex-shrink: 0;
 }
 
-.floating-copilot__avatar--assistant { background: #F84943; color: #fff; }
+.floating-copilot__avatar--assistant { background: #C0392B; color: #fff; }
 .floating-copilot__avatar--user { background: #1769aa; color: #fff; }
 
 .floating-copilot__bubble {
@@ -2057,4 +2057,38 @@ h3.ant-typography {
 
 .floating-copilot__input-wrap .ant-input {
   font-size: 14px !important;
+}
+
+/* Org drawer name + score */
+.org-drawer-item__name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.org-drawer-item__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.org-drawer-item__score {
+  font-size: 18px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+/* Fix DatePicker popup month cells bị overflow */
+.ant-picker-cell-inner,
+.ant-picker-content td,
+.ant-picker-content th,
+.ant-picker-month-btn,
+.ant-picker-year-btn,
+.ant-picker-decade-btn,
+.ant-picker-header button {
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  overflow: visible !important;
 }

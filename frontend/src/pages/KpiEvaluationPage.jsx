@@ -156,17 +156,7 @@ export default function KpiEvaluationPage() {
           {/* ── Row 2: AI Giải thích ── */}
           {score?.ai_explanation && (
             <Card
-              title={
-                <span style={{ fontSize: 16, fontWeight: 700 }}>
-                  <span style={{
-                    display: 'inline-block',
-                    background: 'linear-gradient(135deg,#6366f1,#06b6d4)',
-                    color: '#fff', fontSize: 12, fontWeight: 700,
-                    padding: '2px 10px', borderRadius: 12, marginRight: 10,
-                  }}>✦ AI</span>
-                  Nhận xét & Giải thích
-                </span>
-              }
+              title={<span style={{ fontSize: 16, fontWeight: 700 }}>Nhận xét & Giải thích</span>}
             >
               <div className="ai-markdown-container">
                 <ReactMarkdown>{score.ai_explanation}</ReactMarkdown>

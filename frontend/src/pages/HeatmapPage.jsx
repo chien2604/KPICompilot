@@ -10,12 +10,14 @@ export default function HeatmapPage() {
   const [heatmapData, setHeatmapData] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [users, setUsers] = useState([]);
+  const [ranking, setRanking] = useState([]);
 
   useEffect(() => {
-    Promise.all([kpiApi.heatmap(), userApi.departments(), userApi.list()]).then(([h, d, u]) => {
+    Promise.all([kpiApi.heatmap(), userApi.departments(), userApi.list(), kpiApi.ranking({ month: '2026-06' })]).then(([h, d, u, r]) => {
       setHeatmapData(h);
       setDepartments(d);
       setUsers(u);
+      setRanking(r);
     });
   }, []);
 
@@ -36,7 +38,7 @@ export default function HeatmapPage() {
       <Typography.Title level={3}>Bản đồ nhiệt hiệu suất tổ chức</Typography.Title>
 
       <Card>
-        <OrgHeatmap data={heatmapData} departments={departments} users={users} />
+        <OrgHeatmap data={heatmapData} departments={departments} users={users} ranking={ranking} />
       </Card>
 
       {/* Summary bar */}

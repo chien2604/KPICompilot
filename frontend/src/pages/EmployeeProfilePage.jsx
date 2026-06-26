@@ -1,4 +1,4 @@
-import { Avatar, Card, Col, Empty, Row, Space, Tag, Typography } from 'antd';
+import { Avatar, Card, Col, DatePicker, Empty, Row, Space, Tag, Typography } from 'antd';
 import {
   BankOutlined,
   IdcardOutlined,
@@ -8,6 +8,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import { useEffect, useMemo, useState } from 'react';
+import dayjs from 'dayjs';
 import { useParams } from 'react-router-dom';
 import { kpiApi } from '../api/kpiApi';
 import TaskTable from '../components/TaskTable';
@@ -30,23 +31,23 @@ function KpiScoreCard({ score }) {
 
   const color = riskColor(score.total_score);
   const pct = Math.min(score.total_score / 100, 1);
-  const r = 70;
+  const r = 80;
   const circ = 2 * Math.PI * r;
 
   return (
     <div className="profile-kpi-card">
       {/* Vòng tròn điểm */}
       <div className="profile-kpi-circle-wrap">
-        <svg width="180" height="180" viewBox="0 0 180 180">
-          <circle cx="90" cy="90" r={r} fill="none" stroke="#f1f5f9" strokeWidth="12" />
+        <svg width="220" height="220" viewBox="0 0 220 220">
+          <circle cx="110" cy="110" r={r} fill="none" stroke="#f1f5f9" strokeWidth="14" />
           <circle
-            cx="90" cy="90" r={r}
+            cx="110" cy="110" r={r}
             fill="none"
             stroke={color}
-            strokeWidth="12"
+            strokeWidth="14"
             strokeDasharray={`${pct * circ} ${circ}`}
             strokeLinecap="round"
-            transform="rotate(-90 90 90)"
+            transform="rotate(-90 110 110)"
           />
         </svg>
         <div className="profile-kpi-circle-center">
@@ -72,9 +73,16 @@ function KpiScoreCard({ score }) {
 export default function EmployeeProfilePage() {
   const { userId } = useParams();
   const [profile, setProfile] = useState(null);
+  const [score, setScore] = useState(null);
   const [taskFilter, setTaskFilter] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(dayjs('2026-06', 'YYYY-MM'));
 
   useEffect(() => { kpiApi.profile(userId).then(setProfile); }, [userId]);
+
+  useEffect(() => {
+    const month = selectedMonth.format('YYYY-MM');
+    kpiApi.score(userId, month).then(setScore).catch(() => setScore(null));
+  }, [userId, selectedMonth]);
 
   const tasks = profile?.tasks;
 
@@ -93,7 +101,7 @@ export default function EmployeeProfilePage() {
 
   if (!profile) return <Empty description="Đang tải hồ sơ" />;
 
-  const { user, score } = profile;
+  const { user } = profile;
 
   // Thống kê tác nghiệp từ tasks
   const taskStats = {
@@ -117,10 +125,9 @@ export default function EmployeeProfilePage() {
       <Typography.Title level={3}>Hồ sơ Cán bộ</Typography.Title>
 
       <Row gutter={[20, 20]}>
-        {/* Cột trái: Avatar + tên + điểm KPI */}
-        <Col xs={24} lg={8}>
+        {/* Cột trái: Avatar + Thông tin chi tiết */}
+        <Col xs={24} lg={12}>
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
-
             {/* Avatar card */}
             <Card className="profile-avatar-card">
               <div className="profile-avatar-wrap">
@@ -140,30 +147,40 @@ export default function EmployeeProfilePage() {
               </div>
             </Card>
 
-            {/* KPI score card */}
-            <Card title={<span style={{ fontSize: 16, fontWeight: 700 }}>Điểm KPI tháng 06/2026</span>}>
-              <KpiScoreCard score={score} />
+            {/* Thông tin cán bộ */}
+            <Card title={<span style={{ fontSize: 16, fontWeight: 700 }}>Thông tin cán bộ</span>}>
+              <div className="profile-info-list">
+                <InfoRow icon={<MailOutlined />}      label="Email"       value={user.email} />
+                <InfoRow icon={<BankOutlined />}      label="Đơn vị"      value={user.department} />
+                <InfoRow icon={<IdcardOutlined />}    label="Chức vụ"     value={user.position_title} />
+                <InfoRow icon={<UserOutlined />}      label="Vai trò"     value={roleLabel[user.role] || user.role} />
+                <InfoRow
+                  icon={<SafetyCertificateOutlined />}
+                  label="Mẫu KPI"
+                  value={kpiTemplateLabel[user.kpi_role_template] || user.kpi_role_template}
+                />
+              </div>
             </Card>
           </Space>
         </Col>
 
-        {/* Cột phải: Thông tin chi tiết */}
-        <Col xs={24} lg={16}>
+        {/* Cột phải: Chỉ Điểm KPI */}
+        <Col xs={24} lg={12}>
           <Card
-            title={<span style={{ fontSize: 16, fontWeight: 700 }}>Thông tin cán bộ</span>}
+            title={<span style={{ fontSize: 16, fontWeight: 700 }}>Điểm KPI</span>}
+            extra={
+              <DatePicker
+                picker="month"
+                value={selectedMonth}
+                onChange={(val) => val && setSelectedMonth(val)}
+                format="MM/YYYY"
+                allowClear={false}
+                style={{ width: 130 }}
+              />
+            }
             style={{ height: '100%' }}
           >
-            <div className="profile-info-list">
-              <InfoRow icon={<MailOutlined />}      label="Email"       value={user.email} />
-              <InfoRow icon={<BankOutlined />}      label="Đơn vị"      value={user.department} />
-              <InfoRow icon={<IdcardOutlined />}    label="Chức vụ"     value={user.position_title} />
-              <InfoRow icon={<UserOutlined />}      label="Vai trò"     value={roleLabel[user.role] || user.role} />
-              <InfoRow
-                icon={<SafetyCertificateOutlined />}
-                label="Mẫu KPI"
-                value={kpiTemplateLabel[user.kpi_role_template] || user.kpi_role_template}
-              />
-            </div>
+            <KpiScoreCard score={score} />
           </Card>
         </Col>
       </Row>
@@ -175,22 +192,6 @@ export default function EmployeeProfilePage() {
             <div key={item.label} className="task-stats-item" style={{ background: item.bg }}>
               <div className="task-stats-item__value" style={{ color: item.color }}>{item.value}</div>
               <div className="task-stats-item__label" style={{ color: item.color }}>{item.label}</div>
-              {item.label !== 'Tổng nhiệm vụ' && taskStats.total > 0 && (
-                <div className="task-stats-item__bar-wrap">
-                  <div
-                    className="task-stats-item__bar"
-                    style={{
-                      width: `${Math.round(item.value / taskStats.total * 100)}%`,
-                      background: item.color,
-                    }}
-                  />
-                </div>
-              )}
-              {item.label !== 'Tổng nhiệm vụ' && taskStats.total > 0 && (
-                <div className="task-stats-item__pct" style={{ color: item.color }}>
-                  {Math.round(item.value / taskStats.total * 100)}%
-                </div>
-              )}
             </div>
           ))}
         </div>

@@ -140,7 +140,7 @@ export default function TasksPage() {
 
           {/* Clear */}
           {hasFilter && (
-            <Button size="small" onClick={clearFilters} style={{ marginLeft: 'auto' }}>
+            <Button size="small" danger type="primary" onClick={clearFilters} style={{ marginLeft: 'auto' }}>
               Xóa bộ lọc
             </Button>
           )}

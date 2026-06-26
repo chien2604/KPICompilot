@@ -42,7 +42,7 @@ function collectEdges(nodes) {
 
 // ── Drawer thông tin cán bộ ───────────────────────────────────────────────────
 
-function StaffDrawer({ open, onClose, position, users }) {
+function StaffDrawer({ open, onClose, position, users, scoreMap }) {
   return (
     <Drawer
       title={
@@ -52,29 +52,40 @@ function StaffDrawer({ open, onClose, position, users }) {
       }
       open={open}
       onClose={onClose}
-      width={360}
+      width={380}
       bodyStyle={{ padding: '12px 16px' }}
     >
       <div className="org-drawer-list">
-        {users.map((u) => (
-          <div key={u.id} className="org-drawer-item">
-            <Avatar
-              src={u.avatar_url}
-              icon={<UserOutlined />}
-              size={40}
-              style={{ flexShrink: 0, background: '#e8f3fc', color: '#1769aa' }}
-            />
-            <div className="org-drawer-item__info">
-              <div className="org-drawer-item__name">{u.full_name}</div>
-              <div className="org-drawer-item__meta">
-                <Tag color="blue" style={{ fontSize: 12 }}>{u.position_title}</Tag>
-                {u.role === 'LEADER' && <Tag color="gold" style={{ fontSize: 12 }}>Lãnh đạo</Tag>}
-                {u.role === 'MANAGER' && <Tag color="cyan" style={{ fontSize: 12 }}>Quản lý</Tag>}
+        {users.map((u) => {
+          const score = scoreMap?.[u.id];
+          const color = score != null ? riskColor(score) : '#94a3b8';
+          return (
+            <div key={u.id} className="org-drawer-item">
+              <Avatar
+                src={u.avatar_url}
+                icon={<UserOutlined />}
+                size={40}
+                style={{ flexShrink: 0, background: '#e8f3fc', color: '#1769aa' }}
+              />
+              <div className="org-drawer-item__info">
+                <div className="org-drawer-item__name-row">
+                  <span className="org-drawer-item__name">{u.full_name}</span>
+                  {score != null && (
+                    <span className="org-drawer-item__score" style={{ color }}>
+                      {score}
+                    </span>
+                  )}
+                </div>
+                <div className="org-drawer-item__meta">
+                  <Tag color="blue" style={{ fontSize: 12 }}>{u.position_title}</Tag>
+                  {u.role === 'LEADER' && <Tag color="gold" style={{ fontSize: 12 }}>Lãnh đạo</Tag>}
+                  {u.role === 'MANAGER' && <Tag color="cyan" style={{ fontSize: 12 }}>Quản lý</Tag>}
+                </div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{u.email}</div>
               </div>
-              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{u.email}</div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </Drawer>
   );
@@ -82,7 +93,7 @@ function StaffDrawer({ open, onClose, position, users }) {
 
 // ── Node card ─────────────────────────────────────────────────────────────────
 
-function OrgNodeCard({ node, isRoot, nodeRef, deptUsers }) {
+function OrgNodeCard({ node, isRoot, nodeRef, deptUsers, scoreMap }) {
   const score = node.avg_kpi;
   const color = score !== null ? riskColor(score) : '#94a3b8';
 
@@ -145,6 +156,7 @@ function OrgNodeCard({ node, isRoot, nodeRef, deptUsers }) {
         onClose={() => setDrawerOpen(false)}
         position={selectedPosition}
         users={usersOfPosition}
+        scoreMap={scoreMap}
       />
     </>
   );
@@ -152,7 +164,7 @@ function OrgNodeCard({ node, isRoot, nodeRef, deptUsers }) {
 
 // ── Tree renderer ─────────────────────────────────────────────────────────────
 
-function TreeNodes({ nodes, depth, registerRef, usersByDept }) {
+function TreeNodes({ nodes, depth, registerRef, usersByDept, scoreMap }) {
   return (
     <div className="org-tree-level">
       {nodes.map((node) => {
@@ -165,6 +177,7 @@ function TreeNodes({ nodes, depth, registerRef, usersByDept }) {
               isRoot={depth === 0}
               nodeRef={ref}
               deptUsers={deptUsers}
+              scoreMap={scoreMap}
             />
             {node.children.length > 0 && (
               <div className="org-tree-children-wrap">
@@ -173,6 +186,7 @@ function TreeNodes({ nodes, depth, registerRef, usersByDept }) {
                   depth={depth + 1}
                   registerRef={registerRef}
                   usersByDept={usersByDept}
+                  scoreMap={scoreMap}
                 />
               </div>
             )}
@@ -185,10 +199,14 @@ function TreeNodes({ nodes, depth, registerRef, usersByDept }) {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export default function OrgHeatmap({ data = [], departments = [], users = [] }) {
+export default function OrgHeatmap({ data = [], departments = [], users = [], ranking = [] }) {
   const kpiMap = {};
   data.forEach((d) => { kpiMap[d.department_id] = d; });
   const roots = buildTree(departments, kpiMap);
+
+  // Map user_id -> score từ ranking
+  const scoreMap = {};
+  ranking.forEach((r) => { scoreMap[r.user_id] = r.score; });
 
   // Nhóm users theo department_id
   const usersByDept = {};
@@ -243,7 +261,7 @@ export default function OrgHeatmap({ data = [], departments = [], users = [] }) 
           <line key={line.id} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} stroke="#cbd5e1" strokeWidth="2" />
         ))}
       </svg>
-      <TreeNodes nodes={roots} depth={0} registerRef={registerRef} usersByDept={usersByDept} />
+      <TreeNodes nodes={roots} depth={0} registerRef={registerRef} usersByDept={usersByDept} scoreMap={scoreMap} />
     </div>
   );
 }
