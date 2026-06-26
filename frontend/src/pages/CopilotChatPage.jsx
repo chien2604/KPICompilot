@@ -1,4 +1,5 @@
-import { Card, Space, Typography, message } from 'antd';
+import { Button, Card, Space, Tooltip, Typography, message } from 'antd';
+import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { chatbotApi } from '../api/chatbotApi';
 import { conversationApi } from '../api/conversationApi';
@@ -13,6 +14,7 @@ export default function CopilotChatPage() {
   const [conversations, setConversations] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const loadConversations = async (userId = getSelectedUserId()) => {
     const rows = await conversationApi.list({ user_id: userId });
@@ -131,16 +133,26 @@ export default function CopilotChatPage() {
 
   return (
     <Space direction="vertical" size={18} className="page">
-      <Typography.Title level={3}>AI Copilot Chat</Typography.Title>
-      <div className="copilot-layout">
-        <ConversationSidebar
-          conversations={conversations}
-          activeId={activeId}
-          loading={sidebarLoading}
-          onCreate={() => createConversation()}
-          onSelect={(conversationId) => loadConversation(conversationId).catch(() => message.error('Không tải được hội thoại'))}
-          onDelete={removeConversation}
-        />
+      <div className="page-title-row">
+        <Typography.Title level={3}>AI Copilot Chat</Typography.Title>
+        <Tooltip title={sidebarOpen ? 'Ẩn danh sách hội thoại' : 'Hiện danh sách hội thoại'}>
+          <Button
+            icon={sidebarOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+            onClick={() => setSidebarOpen((v) => !v)}
+          />
+        </Tooltip>
+      </div>
+      <div className={`copilot-layout ${sidebarOpen ? '' : 'copilot-layout--collapsed'}`}>
+        {sidebarOpen && (
+          <ConversationSidebar
+            conversations={conversations}
+            activeId={activeId}
+            loading={sidebarLoading}
+            onCreate={() => createConversation()}
+            onSelect={(conversationId) => loadConversation(conversationId).catch(() => message.error('Không tải được hội thoại'))}
+            onDelete={removeConversation}
+          />
+        )}
         <Card className="copilot-chat-card">
           <ChatBox messages={messages} onSend={send} loading={loading} />
         </Card>

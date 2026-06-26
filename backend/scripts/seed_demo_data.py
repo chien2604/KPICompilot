@@ -10,8 +10,6 @@ sys.path.append(str(BACKEND))
 
 from ai_layer.rag.kuzu_graph_store import KuzuGraphStore  # noqa: E402
 from ai_layer.rag.embedding_client import MockEmbeddingClient  # noqa: E402
-from xoa.report_block_builder import build_fallback_blocks  # noqa: E402
-from xoa.report_html_renderer import render_fragment  # noqa: E402
 from core.config import get_settings  # noqa: E402
 from db.database import SessionLocal  # noqa: E402
 from db.models import (  # noqa: E402
@@ -258,15 +256,32 @@ def _seed_chat_logs_and_reports(db, users: list[User]) -> None:
         ("WEEKLY", "2026-W24", {"tasks_by_status": {"COMPLETED": 140, "IN_PROGRESS": 18, "NOT_STARTED": 3, "OVERDUE": 8}, "total_tasks": 169, "risk_users": []}),
     ]
     for report_type, period, data in report_specs:
-        report_data = build_fallback_blocks(data, report_type, period)
+        tasks_by_status = data.get("tasks_by_status", {})
+        risk_users_data = data.get("risk_users", [])
+        risk_rows = "".join(
+            f"<tr><td>{r['name']}</td><td>{r['department']}</td><td>{r['score']}</td><td>{r['risk']}</td></tr>"
+            for r in risk_users_data
+        )
+        content = (
+            f"<h2>Báo cáo {report_type} — Kỳ {period}</h2>"
+            f"<p>Tổng nhiệm vụ: {data.get('total_tasks', 0)} | "
+            f"Hoàn thành: {tasks_by_status.get('COMPLETED', 0)} | "
+            f"Đang thực hiện: {tasks_by_status.get('IN_PROGRESS', 0)} | "
+            f"Quá hạn: {tasks_by_status.get('OVERDUE', 0)}</p>"
+            + (
+                f"<h3>Cán bộ rủi ro KPI</h3>"
+                f"<table><thead><tr><th>Họ tên</th><th>Phòng ban</th><th>Điểm</th><th>Rủi ro</th></tr></thead>"
+                f"<tbody>{risk_rows}</tbody></table>"
+                if risk_users_data else ""
+            )
+        )
         db.add(
             Report(
                 report_type=report_type,
                 period=period,
                 department_id=None,
-                report_data=report_data,
-                content=render_fragment(report_data),
-                summary_json={"seed": True, **data},
+                content=content,
+                summary_json={"seed": True, "_source": "seed", **data},
                 created_by=users[0].id,
             )
         )

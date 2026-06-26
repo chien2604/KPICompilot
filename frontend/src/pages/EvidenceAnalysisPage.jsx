@@ -61,7 +61,7 @@ export default function EvidenceAnalysisPage() {
         {/* LEFT PANEL: Input (Extracted Text) */}
         <Col xs={24} lg={8}>
           <Card title="Nội dung trích xuất (Input)" style={{ height: '100%' }}>
-            <pre className="text-preview" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 13, maxHeight: '75vh', overflowY: 'auto' }}>
+            <pre className="text-preview" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 16, maxHeight: '75vh', overflowY: 'auto' }}>
               {analysis.extracted_text || 'Chưa có nội dung'}
             </pre>
           </Card>
@@ -82,7 +82,7 @@ export default function EvidenceAnalysisPage() {
                     format={(percent) => (
                       <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
                         <span style={{ fontSize: 28, fontWeight: 800, color: scoreColor }}>{percent}</span>
-                        <span style={{ fontSize: 11, color: '#888' }}>/ 100</span>
+                        <span style={{ fontSize: 16, color: '#888' }}>/ 100</span>
                       </div>
                     )}
                     size={110}
@@ -100,10 +100,10 @@ export default function EvidenceAnalysisPage() {
                   </div>
                   
                   <div style={{ background: 'rgba(99,102,241,0.05)', padding: 16, borderRadius: 8, border: '1px solid rgba(99,102,241,0.2)' }}>
-                    <div style={{ display: 'inline-block', background: 'linear-gradient(135deg,#6366f1,#06b6d4)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 12, marginBottom: 8 }}>
+                    <div style={{ display: 'inline-block', background: 'linear-gradient(135deg,#6366f1,#06b6d4)', color: '#fff', fontSize: 16, fontWeight: 700, padding: '2px 8px', borderRadius: 12, marginBottom: 8 }}>
                       ✦ NHẬN XÉT AI
                     </div>
-                    <Paragraph style={{ margin: 0, color: '#475569', fontSize: 14 }}>
+                    <Paragraph style={{ margin: 0, color: '#475569', fontSize: 16 }}>
                       {analysis.summary || 'Không có nhận xét'}
                     </Paragraph>
                   </div>
@@ -123,9 +123,9 @@ export default function EvidenceAnalysisPage() {
                         <Space align="start" style={{ width: '100%' }}>
                           {item.met ? <CheckCircleFilled style={{ color: '#10b981', marginTop: 4 }} /> : <CloseCircleFilled style={{ color: '#ef4444', marginTop: 4 }} />}
                           <div style={{ flex: 1 }}>
-                            <Text strong={!item.met} style={{ fontSize: 13 }}>{item.item}</Text>
+                            <Text strong={!item.met} style={{ fontSize: 16 }}>{item.item}</Text>
                             {item.note && (
-                              <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>
+                              <div style={{ color: '#64748b', fontSize: 16, marginTop: 4 }}>
                                 {item.note} {!item.met && <Text type="danger">(Trừ {item.deduction}đ)</Text>}
                               </div>
                             )}
@@ -141,21 +141,21 @@ export default function EvidenceAnalysisPage() {
               <Col xs={24} md={12}>
                 <Card title="Điểm mạnh & Cần cải thiện" style={{ height: '100%' }}>
                   <div style={{ marginBottom: 16 }}>
-                    <Text strong style={{ color: '#10b981', textTransform: 'uppercase', fontSize: 12 }}>Điểm mạnh</Text>
+                    <Text strong style={{ color: '#10b981', textTransform: 'uppercase', fontSize: 16 }}>Điểm mạnh</Text>
                     <List
                       size="small"
                       dataSource={analysis.strengths || []}
-                      renderItem={item => <List.Item style={{ border: 'none', padding: '4px 0', color: '#475569', fontSize: 13 }}><span style={{ color: '#10b981', marginRight: 8 }}>●</span> {item}</List.Item>}
+                      renderItem={item => <List.Item style={{ border: 'none', padding: '4px 0', color: '#475569', fontSize: 16 }}><span style={{ color: '#10b981', marginRight: 8 }}>●</span> {item}</List.Item>}
                       locale={{ emptyText: 'Không có điểm mạnh nổi bật' }}
                     />
                   </div>
                   <div style={{ borderTop: '1px solid #f0f0f0', margin: '12px 0' }} />
                   <div>
-                    <Text strong style={{ color: '#f59e0b', textTransform: 'uppercase', fontSize: 12 }}>Cần cải thiện</Text>
+                    <Text strong style={{ color: '#f59e0b', textTransform: 'uppercase', fontSize: 16 }}>Cần cải thiện</Text>
                     <List
                       size="small"
                       dataSource={analysis.weaknesses || []}
-                      renderItem={item => <List.Item style={{ border: 'none', padding: '4px 0', color: '#475569', fontSize: 13 }}><span style={{ color: '#f59e0b', marginRight: 8 }}>●</span> {item}</List.Item>}
+                      renderItem={item => <List.Item style={{ border: 'none', padding: '4px 0', color: '#475569', fontSize: 16 }}><span style={{ color: '#f59e0b', marginRight: 8 }}>●</span> {item}</List.Item>}
                       locale={{ emptyText: 'Không có điểm cần cải thiện' }}
                     />
                   </div>
