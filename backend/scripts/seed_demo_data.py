@@ -10,8 +10,6 @@ sys.path.append(str(BACKEND))
 
 from ai_layer.rag.kuzu_graph_store import KuzuGraphStore  # noqa: E402
 from ai_layer.rag.embedding_client import MockEmbeddingClient  # noqa: E402
-from xoa.report_block_builder import build_fallback_blocks  # noqa: E402
-from xoa.report_html_renderer import render_fragment  # noqa: E402
 from core.config import get_settings  # noqa: E402
 from db.database import SessionLocal  # noqa: E402
 from db.models import (  # noqa: E402
@@ -258,14 +256,19 @@ def _seed_chat_logs_and_reports(db, users: list[User]) -> None:
         ("WEEKLY", "2026-W24", {"tasks_by_status": {"COMPLETED": 140, "IN_PROGRESS": 18, "NOT_STARTED": 3, "OVERDUE": 8}, "total_tasks": 169, "risk_users": []}),
     ]
     for report_type, period, data in report_specs:
-        report_data = build_fallback_blocks(data, report_type, period)
+        completed = data['tasks_by_status']['COMPLETED']
+        in_progress = data['tasks_by_status']['IN_PROGRESS']
+        overdue = data['tasks_by_status']['OVERDUE']
+        content_md = f"# Báo cáo {report_type} - {period}\n\n## 1. Tình hình chung\n- Tổng số nhiệm vụ: {data['total_tasks']}\n- Đã hoàn thành: {completed}\n- Đang thực hiện: {in_progress}\n- Quá hạn: {overdue}\n\n## 2. Cán bộ rủi ro cao\n"
+        for ru in data.get("risk_users", []):
+            content_md += f"- **{ru['name']}** ({ru['department']}): Điểm KPI {ru['score']} ({ru['risk']})\n"
+            
         db.add(
             Report(
                 report_type=report_type,
                 period=period,
                 department_id=None,
-                report_data=report_data,
-                content=render_fragment(report_data),
+                content=content_md,
                 summary_json={"seed": True, **data},
                 created_by=users[0].id,
             )
