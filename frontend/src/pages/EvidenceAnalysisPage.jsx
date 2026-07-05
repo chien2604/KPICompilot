@@ -3,15 +3,22 @@ import { ReloadOutlined, CheckCircleFilled, CloseCircleFilled, HomeOutlined } fr
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { evidenceApi } from '../api/evidenceApi';
+import { apiClient } from '../api/client';
 
 const { Title, Text, Paragraph } = Typography;
 
 export default function EvidenceAnalysisPage() {
   const { evidenceId } = useParams();
   const [analysis, setAnalysis] = useState(null);
+  const [task, setTask]         = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
 
-  const load = () => evidenceApi.analysis(evidenceId).then(setAnalysis);
+  const load = () => evidenceApi.analysis(evidenceId).then((data) => {
+    setAnalysis(data);
+    if (data?.task_id) {
+      apiClient.get(`/tasks/${data.task_id}`).then((r) => setTask(r.data)).catch(() => {});
+    }
+  });
   useEffect(() => {
     load();
   }, [evidenceId]);
@@ -70,8 +77,44 @@ export default function EvidenceAnalysisPage() {
         {/* RIGHT PANEL: Output (AI Results) */}
         <Col xs={24} lg={16}>
           <Space direction="vertical" size="middle" style={{ display: 'flex' }}>
-            
-            {/* Score & Summary Card */}
+
+            {/* Card thông tin nhiệm vụ */}
+            {(task || analysis?.task_id) && (
+              <Card
+                size="small"
+                title={<span style={{ fontSize: 14, fontWeight: 700, color: '#1e293b' }}>Nhiệm vụ liên quan</span>}
+                style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}
+              >
+                {task ? (
+                  <Descriptions size="small" column={2}>
+                    <Descriptions.Item label="Tên" span={2}>
+                      <span style={{ fontWeight: 600 }}>{task.title}</span>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Trạng thái">
+                      <Tag style={{ borderRadius: 20, fontSize: 12 }}>{task.status}</Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Nhóm VB">{task.document_type}</Descriptions.Item>
+                    <Descriptions.Item label="Hạn xử lý">
+                      {task.deadline ? new Date(task.deadline).toLocaleDateString('vi-VN') : '—'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Trọng số KPI">{task.weight ?? '—'}</Descriptions.Item>
+                    {task.description && (
+                      <Descriptions.Item label="Mô tả" span={2}>
+                        <span style={{ color: '#64748b', fontSize: 13 }}>{task.description}</span>
+                      </Descriptions.Item>
+                    )}
+                    {task.assignees?.length > 0 && (
+                      <Descriptions.Item label="Người thực hiện" span={2}>
+                        <span>{task.assignees.map((a) => a.full_name).join(', ')}</span>
+                      </Descriptions.Item>
+                    )}
+                  </Descriptions>
+                ) : (
+                  <span style={{ color: '#94a3b8', fontSize: 13 }}>Đang tải thông tin nhiệm vụ #{analysis.task_id}...</span>
+                )}
+              </Card>
+            )}
+
             <Card>
               <Row gutter={24} align="middle">
                 <Col>

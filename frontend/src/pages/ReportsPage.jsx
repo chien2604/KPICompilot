@@ -206,7 +206,7 @@ export default function ReportsPage() {
             title={
               selected ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <FileTextOutlined style={{ color: '#1769aa' }} />
+                  <FileTextOutlined style={{ color: '#0062ff' }} />
                   <span style={{ fontSize: 16, fontWeight: 700 }}>
                     Báo cáo {TYPE_LABEL[selected.report_type] || selected.report_type} — {selected.period}
                   </span>

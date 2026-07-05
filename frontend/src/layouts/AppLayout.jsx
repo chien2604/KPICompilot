@@ -3,27 +3,32 @@ import {
   FileDoneOutlined,
   FileSearchOutlined,
   HeatMapOutlined,
+  LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   ProfileOutlined,
   ProjectOutlined,
   RobotOutlined,
   TeamOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
-import { Layout, Menu, Select, Tooltip } from 'antd';
+import { Avatar, Button, Layout, Menu, Tag, Tooltip } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
-import { userApi } from '../api/userApi';
+import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import FloatingCopilot from '../components/FloatingCopilot';
 
 const { Header, Sider, Content } = Layout;
 
 const WEEKDAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
 
-function useDate() {
-  const [now] = useState(new Date());
-  return now;
-}
+const LEVEL_TAG = {
+  1: { label: 'Giám đốc', color: 'purple' },
+  2: { label: 'Phó GĐ', color: 'blue' },
+  3: { label: 'Trưởng phòng', color: 'cyan' },
+  4: { label: 'Phó phòng', color: 'green' },
+  5: { label: 'Chuyên viên', color: 'gold' },
+};
 
 function KpiLogo() {
   return (
@@ -39,79 +44,25 @@ function KpiLogo() {
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const now = useDate();
-  const [users, setUsers] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(localStorage.getItem('selected_user_id') || '1');
-  const [filterDept, setFilterDept] = useState(null);
-  const [filterPosition, setFilterPosition] = useState(null);
+  const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
-  useEffect(() => {
-    Promise.all([userApi.list(), userApi.departments()]).then(([rows, departmentRows]) => {
-      setUsers(rows);
-      setDepartments(departmentRows);
-      const stored = localStorage.getItem('selected_user_id');
-      const storedIsValid = rows.some((user) => String(user.id) === String(stored));
-      if ((!stored || !storedIsValid) && rows[0]) {
-        const fallbackUserId = String(rows[0].id);
-        setSelectedUser(fallbackUserId);
-        localStorage.setItem('selected_user_id', fallbackUserId);
-        window.dispatchEvent(new CustomEvent('demo-user-change', { detail: fallbackUserId }));
-        if (location.pathname.startsWith('/employees/')) navigate(`/employees/${fallbackUserId}`, { replace: true });
-        if (location.pathname.startsWith('/kpi/')) navigate(`/kpi/${fallbackUserId}`, { replace: true });
-      }
-    }).catch(() => {
-      setUsers([]);
-      setDepartments([]);
-    });
-  }, [location.pathname, navigate]);
+  const now = new Date();
+  const userId = user?.user_id;
+  const levelInfo = LEVEL_TAG[user?.level] || { label: 'Cán bộ', color: 'default' };
 
-  // Danh sách đơn vị
-  const deptOptions = useMemo(() =>
-    departments.map((d) => ({ value: d.id, label: d.name })),
-    [departments]
-  );
-
-  // Danh sách chức vụ lọc theo đơn vị đã chọn
-  const positionOptions = useMemo(() => {
-    const pool = filterDept ? users.filter((u) => u.department_id === filterDept) : users;
-    const unique = [...new Set(pool.map((u) => u.position_title).filter(Boolean))];
-    return unique.map((p) => ({ value: p, label: p }));
-  }, [users, filterDept]);
-
-  // Danh sách người lọc theo đơn vị + chức vụ
-  const userOptions = useMemo(() => {
-    let pool = users;
-    if (filterDept) pool = pool.filter((u) => u.department_id === filterDept);
-    if (filterPosition) pool = pool.filter((u) => u.position_title === filterPosition);
-    return pool.map((u) => ({ value: String(u.id), label: u.full_name }));
-  }, [users, filterDept, filterPosition]);
-
-  const handleDeptChange = (val) => {
-    setFilterDept(val);
-    setFilterPosition(null);
-  };
-
-  const handlePositionChange = (val) => {
-    setFilterPosition(val);
-  };
-
-  const handleUserChange = (value) => {
-    setSelectedUser(value);
-    localStorage.setItem('selected_user_id', value);
-    window.dispatchEvent(new CustomEvent('demo-user-change', { detail: value }));
-    if (location.pathname.startsWith('/employees/')) navigate(`/employees/${value}`);
-    if (location.pathname.startsWith('/kpi/')) navigate(`/kpi/${value}`);
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
   };
 
   const menuItems = [
     { key: '/dashboard', icon: <BarChartOutlined />, label: 'Tổng quan' },
     { key: '/heatmap', icon: <HeatMapOutlined />, label: 'Heatmap' },
-    { key: `/employees/${selectedUser}`, icon: <TeamOutlined />, label: 'Hồ sơ' },
+    { key: `/employees/${userId}`, icon: <TeamOutlined />, label: 'Hồ sơ' },
     { key: '/tasks', icon: <ProjectOutlined />, label: 'Công việc' },
     { key: '/evidences', icon: <FileSearchOutlined />, label: 'Minh chứng' },
-    { key: `/kpi/${selectedUser}`, icon: <FileDoneOutlined />, label: 'AI đánh giá' },
+    { key: `/kpi/${userId}`, icon: <FileDoneOutlined />, label: 'AI đánh giá' },
     { key: '/copilot', icon: <RobotOutlined />, label: 'AI Copilot' },
     { key: '/reports', icon: <ProfileOutlined />, label: 'Báo cáo' },
   ];
@@ -132,36 +83,31 @@ export default function AppLayout() {
               {now.getFullYear()}
             </span>
           </div>
-          <div className="header-user-filter">
-            <Select
-              allowClear
-              placeholder="Đơn vị"
-              className="header-select header-select--dept"
-              options={deptOptions}
-              value={filterDept}
-              onChange={handleDeptChange}
-              popupMatchSelectWidth={false}
+
+          {/* Thông tin user đăng nhập */}
+          <div className="header-user-info">
+            <Avatar
+              size={34}
+              src={user?.avatar_url}
+              icon={<UserOutlined />}
+              style={{ background: '#6366f1', flexShrink: 0 }}
             />
-            <Select
-              allowClear
-              placeholder="Chức vụ"
-              className="header-select header-select--position"
-              options={positionOptions}
-              value={filterPosition}
-              onChange={handlePositionChange}
-              disabled={positionOptions.length === 0}
-              popupMatchSelectWidth={false}
-            />
-            <Select
-              showSearch
-              placeholder="Chọn người"
-              className="header-select header-select--user"
-              options={userOptions}
-              value={selectedUser}
-              onChange={handleUserChange}
-              optionFilterProp="label"
-              popupMatchSelectWidth={false}
-            />
+            <div className="header-user-info__text">
+              <span className="header-user-info__name">{user?.full_name}</span>
+              <Tag color={levelInfo.color} style={{ fontSize: 11, lineHeight: '18px', margin: 0 }}>
+                {levelInfo.label}
+              </Tag>
+            </div>
+            <Tooltip title="Đăng xuất">
+              <Button
+                id="logout-btn"
+                type="text"
+                danger
+                icon={<LogoutOutlined />}
+                onClick={handleLogout}
+                style={{ color: 'rgba(255,255,255,0.75)' }}
+              />
+            </Tooltip>
           </div>
         </div>
       </Header>

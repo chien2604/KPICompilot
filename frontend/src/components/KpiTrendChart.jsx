@@ -16,7 +16,7 @@ export default function KpiTrendChart({ data = demo }) {
         <XAxis dataKey="month" />
         <YAxis domain={[50, 100]} />
         <Tooltip />
-        <Area type="monotone" dataKey="value" stroke="#1769aa" fill="#d7ebfb" />
+        <Area type="monotone" dataKey="value" stroke="#0062ff" fill="#cce0ff" />
       </AreaChart>
     </ResponsiveContainer>
   );
