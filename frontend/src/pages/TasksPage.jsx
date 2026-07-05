@@ -118,6 +118,17 @@ export default function TasksPage() {
     loadAll();
   };
 
+  /* ── Cập nhật trạng thái ─────────────────────── */
+  const updateTaskStatus = async (taskId, newStatus) => {
+    try {
+      await taskApi.updateStatus(taskId, { status: newStatus });
+      message.success('Đã cập nhật trạng thái công việc');
+      loadAll();
+    } catch (err) {
+      message.error('Lỗi khi cập nhật trạng thái');
+    }
+  };
+
   /* ── Render bộ lọc (dùng lại ở cả 2 tab) ─────── */
   const FilterBar = ({ total, shown }) => (
     <Card size="small" className="task-filter-bar" style={{ marginBottom: 16 }}>
@@ -185,7 +196,7 @@ export default function TasksPage() {
         <>
           <FilterBar total={myTasks.length} shown={filteredMine.length} />
           <Card>
-            <TaskTable data={filteredMine} />
+            <TaskTable data={filteredMine} onStatusChange={updateTaskStatus} />
           </Card>
         </>
       ),
@@ -207,6 +218,7 @@ export default function TasksPage() {
               canScore
               assignableUserIds={new Set(assignableUsers.map((u) => u.id))}
               onScoreAssignment={(taskId, userId, userName) => setScoreModal({ taskId, userId, userName })}
+              onStatusChange={updateTaskStatus}
             />
           </Card>
         </>

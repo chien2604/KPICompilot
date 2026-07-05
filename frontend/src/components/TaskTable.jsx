@@ -1,5 +1,5 @@
 import {
-  Avatar, Badge, Button, Descriptions, Drawer, Progress,
+  Avatar, Badge, Button, Descriptions, Drawer, Progress, Select,
   Space, Table, Tag, Timeline, Tooltip, Typography,
 } from 'antd';
 import {
@@ -10,17 +10,24 @@ import { useState } from 'react';
 import StatusTag from './StatusTag';
 import { formatDate } from '../utils/formatters';
 
-const PRIORITY_COLOR = { HIGH: '#dc2626', MEDIUM: '#f59e0b', LOW: '#16a34a' };
+const PRIORITY_COLOR = { HIGH: '#0284c7', MEDIUM: '#0ea5e9', LOW: '#38bdf8' };
 const PRIORITY_LABEL = { HIGH: 'Cao', MEDIUM: 'Trung bình', LOW: 'Thấp' };
 
 const STATUS_PROGRESS = {
   COMPLETED: 100, IN_PROGRESS: 50, NOT_STARTED: 0, OVERDUE: 75,
 };
 const STATUS_COLOR = {
-  COMPLETED: '#16a34a', IN_PROGRESS: '#f59e0b', NOT_STARTED: '#94a3b8', OVERDUE: '#dc2626',
+  COMPLETED: '#0284c7', IN_PROGRESS: '#0ea5e9', NOT_STARTED: '#94a3b8', OVERDUE: '#1d4ed8',
 };
 
-function TaskDetailDrawer({ task, open, onClose }) {
+const STATUS_OPTIONS = [
+  { value: 'COMPLETED',   label: 'Hoàn thành',     color: '#0284c7' },
+  { value: 'IN_PROGRESS', label: 'Đang thực hiện', color: '#0ea5e9' },
+  { value: 'NOT_STARTED', label: 'Chưa bắt đầu',   color: '#64748b' },
+  { value: 'OVERDUE',     label: 'Quá hạn',        color: '#1d4ed8' },
+];
+
+function TaskDetailDrawer({ task, open, onClose, onStatusChange }) {
   if (!task) return null;
 
   const totalAssignees = task.assignees?.length || 0;
@@ -55,7 +62,15 @@ function TaskDetailDrawer({ task, open, onClose }) {
       {/* Trạng thái + tiến độ */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <StatusTag status={task.status} />
+          <Select
+            value={task.status}
+            onChange={(newStatus) => onStatusChange?.(task.id, newStatus)}
+            style={{ width: 150 }}
+            options={STATUS_OPTIONS}
+            optionRender={(option) => (
+              <span style={{ color: option.data.color, fontWeight: 500 }}>{option.data.label}</span>
+            )}
+          />
           {task.priority && (
             <Tag color={PRIORITY_COLOR[task.priority]} style={{ borderRadius: 20 }}>
               {PRIORITY_LABEL[task.priority]}
@@ -161,8 +176,16 @@ export default function TaskTable({
   canScore = false,
   assignableUserIds = new Set(),
   onScoreAssignment,
+  onStatusChange,
 }) {
   const [selected, setSelected] = useState(null);
+
+  const handleStatusChange = (taskId, newStatus) => {
+    if (selected && selected.id === taskId) {
+      setSelected({ ...selected, status: newStatus });
+    }
+    onStatusChange?.(taskId, newStatus);
+  };
 
   const columns = [
     {
@@ -238,6 +261,7 @@ export default function TaskTable({
         task={selected}
         open={!!selected}
         onClose={() => setSelected(null)}
+        onStatusChange={handleStatusChange}
       />
     </>
   );

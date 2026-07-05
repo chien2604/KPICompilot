@@ -65,7 +65,7 @@ function StaffDrawer({ open, onClose, position, users, scoreMap }) {
                 src={u.avatar_url}
                 icon={<UserOutlined />}
                 size={40}
-                style={{ flexShrink: 0, background: '#e8f3fc', color: '#1769aa' }}
+                style={{ flexShrink: 0, background: '#e0f2fe', color: '#0ea5e9' }}
               />
               <div className="org-drawer-item__info">
                 <div className="org-drawer-item__name-row">

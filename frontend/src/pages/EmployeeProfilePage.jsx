@@ -92,7 +92,7 @@ export default function EmployeeProfilePage() {
   );
 
   const FILTER_OPTIONS = [
-    { value: null, label: 'Tất cả', color: '#1769aa' },
+    { value: null, label: 'Tất cả', color: '#0ea5e9' },
     { value: 'COMPLETED', label: 'Hoàn thành', color: '#16a34a' },
     { value: 'IN_PROGRESS', label: 'Đang thực hiện', color: '#f59e0b' },
     { value: 'NOT_STARTED', label: 'Chưa bắt đầu', color: '#64748b' },
@@ -113,7 +113,7 @@ export default function EmployeeProfilePage() {
   };
 
   const TASK_ITEMS = [
-    { label: 'Tổng nhiệm vụ', value: taskStats.total, color: '#1769aa', bg: '#e8f3fc' },
+    { label: 'Tổng nhiệm vụ', value: taskStats.total, color: '#0ea5e9', bg: '#e0f2fe' },
     { label: 'Hoàn thành', value: taskStats.COMPLETED, color: '#16a34a', bg: '#dcfce7' },
     { label: 'Đang thực hiện', value: taskStats.IN_PROGRESS, color: '#f59e0b', bg: '#fef9c3' },
     { label: 'Chưa bắt đầu', value: taskStats.NOT_STARTED, color: '#64748b', bg: '#f1f5f9' },
@@ -135,7 +135,7 @@ export default function EmployeeProfilePage() {
                   size={96}
                   src={user.avatar_url}
                   icon={<UserOutlined />}
-                  style={{ background: '#e8f3fc', color: '#1769aa', fontSize: 40 }}
+                  style={{ background: '#e0f2fe', color: '#0ea5e9', fontSize: 40 }}
                 />
                 <div className="profile-avatar-info">
                   <div className="profile-avatar-name">{user.full_name}</div>

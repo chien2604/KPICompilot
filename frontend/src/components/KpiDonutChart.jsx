@@ -3,7 +3,7 @@ import { statusLabel } from '../utils/formatters';
 
 const STATUS_COLOR = {
   COMPLETED: '#16a34a',
-  IN_PROGRESS: '#1769aa',
+  IN_PROGRESS: '#0ea5e9',
   NOT_STARTED: '#64748b',
   OVERDUE: '#dc2626',
 };

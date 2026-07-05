@@ -15,11 +15,11 @@ const DEMO_USERS = [
 ];
 
 const ROLE_BADGE = {
-  1: { label: 'Giám đốc', color: '#7c3aed' },
-  2: { label: 'Phó Giám đốc', color: '#2563eb' },
-  3: { label: 'Trưởng phòng', color: '#0891b2' },
-  4: { label: 'Phó phòng', color: '#059669' },
-  5: { label: 'Chuyên viên', color: '#d97706' },
+  1: { label: 'Giám đốc', color: '#1d4ed8' },     // Deep Blue
+  2: { label: 'Phó Giám đốc', color: '#2563eb' }, // Royal Blue
+  3: { label: 'Trưởng phòng', color: '#0284c7' }, // Sky Blue
+  4: { label: 'Phó phòng', color: '#0ea5e9' },    // Light Cyan
+  5: { label: 'Chuyên viên', color: '#64748b' },  // Slate Grey
 };
 
 export default function LoginPage() {
@@ -85,9 +85,9 @@ export default function LoginPage() {
             onChange={handleDemoSelect}
             options={DEMO_USERS.map((u) => ({ value: u.email, label: u.label }))}
             popupMatchSelectWidth={false}
+            popupClassName="login-demo-dropdown"
             allowClear
           />
-          <p className="login-demo-hint">Mật khẩu mặc định: <code>123456</code></p>
         </div>
 
         {/* Divider */}

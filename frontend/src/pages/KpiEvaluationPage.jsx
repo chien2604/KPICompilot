@@ -273,7 +273,7 @@ export default function KpiEvaluationPage() {
                 <div className="kpi-user-header">
                   <Avatar
                     size={72} src={user?.avatar_url} icon={<UserOutlined />}
-                    style={{ background: '#e8f3fc', color: '#1769aa', fontSize: 32, flexShrink: 0 }}
+                    style={{ background: '#e0f2fe', color: '#0ea5e9', fontSize: 32, flexShrink: 0 }}
                   />
                   <div>
                     <div className="kpi-user-name">{user?.full_name || '—'}</div>

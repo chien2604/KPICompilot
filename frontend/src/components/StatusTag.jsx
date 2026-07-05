@@ -2,14 +2,14 @@ import { Tag } from 'antd';
 import { statusLabel } from '../utils/formatters';
 
 const colors = {
-  COMPLETED: 'success',
-  IN_PROGRESS: 'processing',
-  OVERDUE: 'error',
+  COMPLETED: 'cyan',
+  IN_PROGRESS: 'blue',
+  OVERDUE: 'geekblue',
   NOT_STARTED: 'default',
   UPLOADED: 'default',
-  PROCESSING: 'processing',
-  ANALYZED: 'success',
-  FAILED: 'error',
+  PROCESSING: 'blue',
+  ANALYZED: 'cyan',
+  FAILED: 'geekblue',
 };
 
 export default function StatusTag({ status }) {

@@ -11,7 +11,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       locale={viVN}
       theme={{
         token: {
-          colorPrimary: '#1769aa',
+          colorPrimary: '#0ea5e9',
           borderRadius: 8,
           fontFamily: "'Be Vietnam Pro', sans-serif",
           fontSize: 16,

@@ -31,7 +31,7 @@ function TaskStatusTable({ tasksByStatus = {}, totalTasks }) {
     key: '__total__',
     status: 'Tổng cộng',
     count: totalTasks,
-    color: '#1769aa',
+    color: '#0ea5e9',
     pct: 100,
     isTotal: true,
   });
