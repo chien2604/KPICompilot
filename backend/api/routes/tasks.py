@@ -46,6 +46,7 @@ def list_tasks(
     status: str | None = None,
     department_id: int | None = None,
     assigned_user_id: int | None = None,
+    creator_id: int | None = None,
     month: str | None = None,
     db: Session = Depends(get_db),
 ) -> list[dict]:
@@ -56,6 +57,8 @@ def list_tasks(
         query = query.filter(Task.department_id == department_id)
     if assigned_user_id:
         query = query.join(TaskAssignment).filter(TaskAssignment.user_id == assigned_user_id)
+    if creator_id:
+        query = query.filter(Task.creator_id == creator_id)
     if month:
         year, month_value = month.split("-")
         query = query.filter(extract("year", Task.created_at) == int(year), extract("month", Task.created_at) == int(month_value))

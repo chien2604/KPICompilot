@@ -70,6 +70,7 @@ def get_analysis(evidence_id: int, db: Session = Depends(get_db)) -> dict:
 
     return {
         "evidence_id": item.id,
+        "task_id": item.task_id,
         "relevance_score": item.ai_relevance_score,
         "summary": item.ai_summary,
         "checklist": missing_data.get("checklist", []),
