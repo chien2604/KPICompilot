@@ -4,10 +4,13 @@ import { CloseOutlined, RobotOutlined, SendOutlined, UserOutlined } from '@ant-d
 import ReactMarkdown from 'react-markdown';
 import { chatbotApi } from '../api/chatbotApi';
 import { conversationApi } from '../api/conversationApi';
+import { useAuth } from '../contexts/AuthContext';
 
-const getSelectedUserId = () => Number(localStorage.getItem('selected_user_id') || 1);
+// Lấy tháng hiện tại dạng YYYY-MM
+const getCurrentMonth = () => new Date().toISOString().slice(0, 7);
 
 export default function FloatingCopilot() {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [value, setValue] = useState('');
@@ -60,7 +63,6 @@ export default function FloatingCopilot() {
     if (!value.trim() || loading) return;
     const question = value.trim();
     setValue('');
-    const userId = getSelectedUserId();
 
     setMessages((prev) => [...prev, { role: 'user', content: question, id: Date.now() }]);
     setLoading(true);
@@ -68,17 +70,19 @@ export default function FloatingCopilot() {
     try {
       let cid = convId;
       if (!cid) {
-        const conv = await conversationApi.create({ user_id: userId });
+        // Tạo conversation mới — user_id lấy từ token phía backend
+        const conv = await conversationApi.create({ user_id: user?.user_id });
         cid = conv.conversation_id;
         setConvId(cid);
       }
+      // Gửi message — user_id KHÔNG cần trong body, backend đọc từ JWT Authorization header
       const res = await chatbotApi.send({
-        user_id: userId,
         conversation_id: cid,
         message: question,
-        month: '2026-06',
+        month: getCurrentMonth(),
+        department_id: user?.department_id ?? null,
       });
-      const detail = await conversationApi.get(res.conversation_id || cid, { user_id: userId });
+      const detail = await conversationApi.get(res.conversation_id || cid, { user_id: user?.user_id });
       const msgs = detail.messages || [];
       setMessages(msgs.map((m, i) => ({ role: m.role, content: m.content, id: i })));
     } catch {

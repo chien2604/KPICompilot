@@ -6,10 +6,11 @@ from sqlalchemy.orm import Session
 
 from ai_layer.llm_client import get_llm_client
 from ai_layer.rag.graph_rag_service import GraphRAGService
+from core.permissions import get_user_level
 from db.models.chat import ChatLog, Conversation
 from db.models.departments import Department
 from db.models.kpi import KPIScore
-from db.models.tasks import Task
+from db.models.tasks import Task, TaskAssignment
 from db.models.users import User
 from repositories.conversation_repository import ConversationRepository
 
@@ -49,22 +50,29 @@ class ChatbotService:
 
     def answer(
         self,
-        user_id: int | None,
+        user: User,
         message: str,
         month: str | None,
         department_id: int | None,
         conversation_id: int | None = None,
     ) -> dict:
-        conversation = self._get_or_create_conversation(conversation_id, user_id)
+        user_level = get_user_level(user)
+        # Nếu caller không truyền department_id, dùng department_id của chính user
+        effective_dept_id = department_id or user.department_id
+
+        conversation = self._get_or_create_conversation(conversation_id, user.id)
         previous_messages = self.repo.list_messages(conversation.conversation_id, limit=12)
         previous_user_messages = [item for item in previous_messages if item.role == "user"]
         summary = self.repo.get_summary(conversation.conversation_id)
         conversation_summary = summary.summary if summary else ""
 
         intent = self.detect_intent(message)
-        data = self._structured_data(intent, month, department_id)
-        rag_context = GraphRAGService(self.db).build_chat_context(message, user_id, department_id)
+        data = self._structured_data(intent, month, user_level, user.id, effective_dept_id)
+        rag_context = GraphRAGService(self.db).build_chat_context(message, user.id, effective_dept_id)
+
+        user_context = self._build_user_context(user, user_level)
         user_prompt = self._build_user_prompt(
+            user_context=user_context,
             history=self._format_history(previous_messages),
             conversation_summary=conversation_summary,
             message=message,
@@ -78,7 +86,7 @@ class ChatbotService:
             role="user",
             content=message,
             intent=intent,
-            metadata_json={"month": month, "department_id": department_id},
+            metadata_json={"month": month, "department_id": effective_dept_id, "user_level": user_level},
         )
 
         if not previous_user_messages:
@@ -98,7 +106,7 @@ class ChatbotService:
             metadata_json={"structured_data": data, "sources": sources},
         )
 
-        self.db.add(ChatLog(user_id=user_id, question=message, intent=intent, answer=answer, sources_json=sources))
+        self.db.add(ChatLog(user_id=user.id, question=message, intent=intent, answer=answer, sources_json=sources))
         self.db.commit()
 
         self._summarize_if_needed(conversation.conversation_id)
@@ -113,21 +121,225 @@ class ChatbotService:
             "message": self._message_to_dict(assistant_message),
         }
 
+    # ── Intent detection ─────────────────────────────────────────────────────
+
     def detect_intent(self, message: str) -> str:
         lower = message.lower()
-        if "nguy cơ" in lower or "không đạt" in lower or "rủi ro" in lower:
+
+        # KPI cá nhân
+        if any(k in lower for k in ["kpi của tôi", "điểm của tôi", "tôi đạt", "kpi bản thân", "kết quả kpi"]):
+            return "MY_KPI"
+
+        # Nguy cơ / rủi ro KPI
+        if any(k in lower for k in ["nguy cơ", "không đạt", "rủi ro", "kpi thấp", "ai thấp"]):
             return "KPI_RISK_USERS"
-        if "phòng" in lower and ("chậm" in lower or "quá hạn" in lower):
+
+        # Tổng kết phòng
+        if any(k in lower for k in ["tổng kết phòng", "tình hình phòng", "tổng quan phòng", "phòng tôi"]):
+            return "DEPT_SUMMARY"
+
+        # Phòng ban chậm
+        if "phòng" in lower and any(k in lower for k in ["chậm", "quá hạn", "trễ", "chậm tiến độ"]):
             return "SLOW_DEPARTMENTS"
-        if "vì sao" in lower or "tại sao" in lower or "điểm thấp" in lower:
+
+        # Hồ sơ cá nhân / giải thích điểm
+        if any(k in lower for k in ["vì sao", "tại sao", "điểm thấp", "giải thích", "lý do"]):
             return "EMPLOYEE_PROFILE"
-        if "nhiệm vụ" in lower or "tiến độ" in lower:
+
+        # Nhiệm vụ / tiến độ
+        if any(k in lower for k in ["nhiệm vụ", "tiến độ", "công việc", "task"]):
             return "TASK_STATUS"
+
+        # Minh chứng
         if "minh chứng" in lower:
             return "EVIDENCE_EXPLAIN"
+
+        # Báo cáo
         if "báo cáo" in lower:
             return "GENERATE_REPORT"
+
         return "GENERAL_HELP"
+
+    # ── Role-aware structured data ────────────────────────────────────────────
+
+    def _structured_data(
+        self,
+        intent: str,
+        month: str | None,
+        user_level: int,
+        user_id: int,
+        department_id: int | None,
+    ) -> dict:
+        period = month or "2026-06"
+
+        if intent == "MY_KPI":
+            return self._query_my_kpi(user_id, period)
+
+        if intent == "KPI_RISK_USERS":
+            return self._query_kpi_risk(user_level, user_id, department_id, period)
+
+        if intent == "SLOW_DEPARTMENTS":
+            return self._query_slow_departments(user_level, department_id)
+
+        if intent == "DEPT_SUMMARY":
+            return self._query_dept_summary(user_level, department_id, period)
+
+        if intent == "EMPLOYEE_PROFILE":
+            return self._query_employee_profile(user_level, user_id, department_id, period)
+
+        if intent == "TASK_STATUS":
+            return self._query_task_status(user_level, user_id, department_id)
+
+        # Mặc định: tổng quan nhiệm vụ (có filter theo role)
+        return self._query_task_status(user_level, user_id, department_id)
+
+    def _query_my_kpi(self, user_id: int, period: str) -> dict:
+        """KPI cá nhân: điểm, phân loại, breakdown chi tiết."""
+        score = (
+            self.db.query(KPIScore)
+            .filter(KPIScore.user_id == user_id, KPIScore.period_month == period)
+            .first()
+        )
+        if not score:
+            return {"period": period, "my_kpi": None, "message": "Chưa có dữ liệu KPI cho kỳ này"}
+        return {
+            "period": period,
+            "my_kpi": {
+                "total_score": score.total_score,
+                "classification": score.classification,
+                "risk_level": score.risk_level,
+                "breakdown": score.breakdown_json,
+                "ai_explanation": score.ai_explanation,
+            },
+        }
+
+    def _query_kpi_risk(self, level: int, user_id: int, dept_id: int | None, period: str) -> dict:
+        """Cán bộ có nguy cơ không đạt KPI — scope theo level."""
+        q = (
+            self.db.query(User.full_name, Department.name, KPIScore.total_score, KPIScore.risk_level)
+            .join(KPIScore, KPIScore.user_id == User.id)
+            .outerjoin(Department, Department.id == User.department_id)
+            .filter(KPIScore.period_month == period, KPIScore.risk_level.in_(["HIGH", "MEDIUM"]))
+        )
+        if level >= 3 and dept_id:
+            # Trưởng/Phó phòng: chỉ phòng mình
+            q = q.filter(User.department_id == dept_id)
+        elif level == 5:
+            # Chuyên viên: chỉ bản thân
+            q = q.filter(User.id == user_id)
+        # Level 1-2: toàn Sở — không filter thêm
+
+        rows = q.order_by(KPIScore.total_score.asc()).limit(10).all()
+        return {"period": period, "risk_users": [dict(name=r[0], department=r[1], score=r[2], risk=r[3]) for r in rows]}
+
+    def _query_slow_departments(self, level: int, dept_id: int | None) -> dict:
+        """Phòng ban chậm tiến độ — Level 1-2 thấy tất, Level 3+ chỉ phòng mình."""
+        q = (
+            self.db.query(Department.name, func.count(Task.id))
+            .join(Task, Task.department_id == Department.id)
+            .filter(Task.status == "OVERDUE")
+            .group_by(Department.name)
+        )
+        if level >= 3 and dept_id:
+            q = q.filter(Department.id == dept_id)
+        rows = q.order_by(func.count(Task.id).desc()).all()
+        return {"slow_departments": [{"department": r[0], "overdue_tasks": r[1]} for r in rows]}
+
+    def _query_dept_summary(self, level: int, dept_id: int | None, period: str) -> dict:
+        """Tổng quan phòng ban: nhiệm vụ + KPI trung bình."""
+        dept_filter = []
+        if level >= 3 and dept_id:
+            dept_filter = [Task.department_id == dept_id]
+
+        task_rows = (
+            self.db.query(Task.status, func.count(Task.id))
+            .filter(*dept_filter)
+            .group_by(Task.status)
+            .all()
+        )
+        task_summary = {status: count for status, count in task_rows}
+
+        # KPI trung bình trong phòng
+        kpi_q = self.db.query(func.avg(KPIScore.total_score)).filter(KPIScore.period_month == period)
+        if level >= 3 and dept_id:
+            kpi_q = kpi_q.join(User, User.id == KPIScore.user_id).filter(User.department_id == dept_id)
+        avg_kpi = kpi_q.scalar()
+
+        return {
+            "period": period,
+            "dept_summary": {
+                "task_by_status": task_summary,
+                "avg_kpi": round(float(avg_kpi), 2) if avg_kpi else None,
+            },
+        }
+
+    def _query_employee_profile(self, level: int, user_id: int, dept_id: int | None, period: str) -> dict:
+        """Hồ sơ nhân viên — Lãnh đạo xem nhân viên mình quản; Chuyên viên chỉ xem bản thân."""
+        if level == 5:
+            # Chuyên viên chỉ xem bản thân
+            rows = (
+                self.db.query(User.full_name, KPIScore.total_score, KPIScore.classification, KPIScore.risk_level, KPIScore.ai_explanation)
+                .join(KPIScore, KPIScore.user_id == User.id)
+                .filter(KPIScore.period_month == period, User.id == user_id)
+                .all()
+            )
+        else:
+            q = (
+                self.db.query(User.full_name, KPIScore.total_score, KPIScore.classification, KPIScore.risk_level, KPIScore.ai_explanation)
+                .join(KPIScore, KPIScore.user_id == User.id)
+                .filter(KPIScore.period_month == period)
+            )
+            if level >= 3 and dept_id:
+                q = q.filter(User.department_id == dept_id)
+            rows = q.order_by(KPIScore.total_score.asc()).limit(10).all()
+
+        return {
+            "period": period,
+            "employee_profiles": [
+                {"name": r[0], "score": r[1], "classification": r[2], "risk": r[3], "ai_note": r[4]}
+                for r in rows
+            ],
+        }
+
+    def _query_task_status(self, level: int, user_id: int, dept_id: int | None) -> dict:
+        """Tổng kết nhiệm vụ — scope theo level."""
+        if level == 5:
+            # Chuyên viên: nhiệm vụ được giao cho mình
+            rows = (
+                self.db.query(Task.status, func.count(Task.id))
+                .join(TaskAssignment, TaskAssignment.task_id == Task.id)
+                .filter(TaskAssignment.user_id == user_id)
+                .group_by(Task.status)
+                .all()
+            )
+            return {"scope": "personal", "task_status": {s: c for s, c in rows}}
+
+        if level >= 3 and dept_id:
+            # Trưởng/Phó phòng: nhiệm vụ phòng mình
+            rows = (
+                self.db.query(Task.status, func.count(Task.id))
+                .filter(Task.department_id == dept_id)
+                .group_by(Task.status)
+                .all()
+            )
+            return {"scope": "department", "task_status": {s: c for s, c in rows}}
+
+        # Lãnh đạo cấp cao: toàn Sở
+        rows = self.db.query(Task.status, func.count(Task.id)).group_by(Task.status).all()
+        return {"scope": "org_wide", "task_status": {s: c for s, c in rows}}
+
+    # ── Prompt building ───────────────────────────────────────────────────────
+
+    def _build_user_context(self, user: User, user_level: int) -> str:
+        dept_name = user.department.name if user.department else "Không xác định"
+        level_label = {1: "Giám đốc Sở", 2: "Phó Giám đốc Sở", 3: "Trưởng phòng", 4: "Phó phòng", 5: "Chuyên viên"}.get(user_level, "Không xác định")
+        return (
+            f"Người dùng: {user.full_name}\n"
+            f"Chức danh: {user.position_title or level_label}\n"
+            f"Phòng ban: {dept_name}\n"
+            f"Cấp bậc: Level {user_level} ({level_label})\n"
+            f"Phạm vi quản lý: {'Toàn Sở' if user_level <= 2 else f'Phòng {dept_name}' if user_level <= 4 else 'Cá nhân'}"
+        )
 
     def _get_or_create_conversation(self, conversation_id: int | None, user_id: int | None) -> Conversation:
         if conversation_id:
@@ -141,6 +353,7 @@ class ChatbotService:
 
     def _build_user_prompt(
         self,
+        user_context: str,
         history: str,
         conversation_summary: str,
         message: str,
@@ -148,6 +361,9 @@ class ChatbotService:
         rag_context: dict,
     ) -> str:
         return (
+            "THÔNG TIN NGƯỜI DÙNG\n\n"
+            f"{user_context}\n\n"
+            "---\n\n"
             "LỊCH SỬ HỘI THOẠI\n\n"
             f"{history or '(chưa có lịch sử)'}\n\n"
             "---\n\n"
@@ -165,6 +381,7 @@ class ChatbotService:
             "---\n\n"
             "Yêu cầu:\n"
             "- Luôn ưu tiên dữ liệu hệ thống.\n"
+            "- Trả lời phù hợp với cấp bậc và phạm vi quản lý của người dùng.\n"
             "- Không bịa số liệu.\n"
             "- Không bỏ qua ngữ cảnh hội thoại trước đó.\n"
         )
@@ -212,42 +429,25 @@ class ChatbotService:
             summary = self._format_history(messages)[-1800:]
         self.repo.upsert_summary(conversation_id, summary.strip())
 
-    def _structured_data(self, intent: str, month: str | None, department_id: int | None) -> dict:
-        period = month or "2026-06"
-        if intent == "KPI_RISK_USERS":
-            rows = (
-                self.db.query(User.full_name, Department.name, KPIScore.total_score, KPIScore.risk_level)
-                .join(KPIScore, KPIScore.user_id == User.id)
-                .outerjoin(Department, Department.id == User.department_id)
-                .filter(KPIScore.period_month == period, KPIScore.risk_level.in_(["HIGH", "MEDIUM"]))
-                .order_by(KPIScore.total_score.asc())
-                .limit(8)
-                .all()
-            )
-            return {"period": period, "risk_users": [dict(name=r[0], department=r[1], score=r[2], risk=r[3]) for r in rows]}
-        if intent == "SLOW_DEPARTMENTS":
-            rows = (
-                self.db.query(Department.name, func.count(Task.id))
-                .join(Task, Task.department_id == Department.id)
-                .filter(Task.status == "OVERDUE")
-                .group_by(Department.name)
-                .order_by(func.count(Task.id).desc())
-                .all()
-            )
-            return {"slow_departments": [{"department": r[0], "overdue_tasks": r[1]} for r in rows]}
-        rows = self.db.query(Task.status, func.count(Task.id)).group_by(Task.status).all()
-        return {"task_status": {status: count for status, count in rows}}
+    # ── Fallback answers ──────────────────────────────────────────────────────
 
     def _fallback_answer(self, intent: str, data: dict) -> str:
+        if intent == "MY_KPI":
+            kpi = data.get("my_kpi")
+            if not kpi:
+                return "Chưa có dữ liệu KPI của bạn cho kỳ này."
+            return f"KPI của bạn kỳ này: {kpi['total_score']} điểm — Phân loại: {kpi['classification']} — Rủi ro: {kpi['risk_level']}."
         if intent == "KPI_RISK_USERS":
             names = [item["name"] for item in data.get("risk_users", [])[:5]]
-            return "Nhóm có nguy cơ không đạt KPI gồm: " + (", ".join(names) if names else "chưa có dữ liệu rủi ro.")
+            return "Nhóm có nguy cơ không đạt KPI: " + (", ".join(names) if names else "chưa có dữ liệu rủi ro.")
         if intent == "SLOW_DEPARTMENTS":
             rows = data.get("slow_departments", [])
             if not rows:
                 return "Chưa ghi nhận phòng ban chậm tiến độ trong dữ liệu hiện có."
-            return "Phòng chậm tiến độ nổi bật: " + ", ".join(f"{item['department']} ({item['overdue_tasks']} nhiệm vụ quá hạn)" for item in rows[:5])
-        return "Đã lấy được dữ liệu nghiệp vụ, nhưng LLM thật chưa phản hồi. Vui lòng kiểm tra cấu hình LLM, quota hoặc kết nối mạng."
+            return "Phòng chậm tiến độ: " + ", ".join(f"{r['department']} ({r['overdue_tasks']} nhiệm vụ quá hạn)" for r in rows[:5])
+        return "Đã lấy được dữ liệu nghiệp vụ, nhưng LLM chưa phản hồi. Vui lòng kiểm tra cấu hình LLM, quota hoặc kết nối mạng."
+
+    # ── Serializers ───────────────────────────────────────────────────────────
 
     def _conversation_to_dict(self, conversation: Conversation) -> dict:
         return {

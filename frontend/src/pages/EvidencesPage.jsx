@@ -48,7 +48,7 @@ export default function EvidencesPage() {
     myTasks.forEach((t) => {
       if (!seen.has(t.id)) {
         seen.add(t.id);
-        opts.push({ value: t.id, label: `[Của tôi] ${t.id} – ${t.title}`, group: 'mine' });
+        opts.push({ value: t.id, label: `[Phụ trách] ${t.id} – ${t.title}`, group: 'mine' });
       }
     });
 
@@ -62,13 +62,13 @@ export default function EvidencesPage() {
     return opts;
   }, [myTasks, assignedTasks]);
 
-  // Nhóm theo "Của tôi" / "Tôi đã giao"
+  // Nhóm theo "Phụ trách" / "Đã giao"
   const taskSelectOptions = useMemo(() => {
     const groups = [];
     const mine = allTaskOptions.filter((o) => o.group === 'mine');
     const assigned = allTaskOptions.filter((o) => o.group === 'assigned');
-    if (mine.length) groups.push({ label: 'Được giao cho tôi', options: mine });
-    if (assigned.length) groups.push({ label: 'Tôi đã giao cho cấp dưới', options: assigned });
+    if (mine.length) groups.push({ label: 'Nhiệm vụ phụ trách', options: mine });
+    if (assigned.length) groups.push({ label: 'Nhiệm vụ đã giao', options: assigned });
     return groups;
   }, [allTaskOptions]);
 
@@ -115,13 +115,13 @@ export default function EvidencesPage() {
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {opt.data.group === 'assigned'
                       ? opt.data.label.replace('[Đã giao] ', '')
-                      : opt.data.label.replace('[Của tôi] ', '')}
+                      : opt.data.label.replace('[Phụ trách] ', '')}
                   </span>
                   <Tag
                     style={{ margin: 0, borderRadius: 20, flexShrink: 0 }}
                     color={opt.data.group === 'assigned' ? 'gold' : 'blue'}
                   >
-                    {opt.data.group === 'assigned' ? 'Đã giao' : 'Của tôi'}
+                    {opt.data.group === 'assigned' ? 'Đã giao' : 'Phụ trách'}
                   </Tag>
                 </div>
               )}
@@ -144,9 +144,9 @@ export default function EvidencesPage() {
 
         {/* Thống kê nhanh */}
         <div style={{ marginTop: 12, fontSize: 13, color: '#64748b' }}>
-          {myTasks.length > 0 && <span>{myTasks.length} việc được giao cho tôi</span>}
+          {myTasks.length > 0 && <span>{myTasks.length} việc phụ trách</span>}
           {canAssign && assignedTasks.length > 0 && (
-            <span style={{ marginLeft: 16 }}>{assignedTasks.length} việc tôi đã giao</span>
+            <span style={{ marginLeft: 16 }}>{assignedTasks.length} việc đã giao</span>
           )}
         </div>
       </Card>

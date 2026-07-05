@@ -188,7 +188,7 @@ export default function TasksPage() {
       key: 'mine',
       label: (
         <span>
-          <UserOutlined /> Công việc của tôi
+          <UserOutlined /> Nhiệm vụ phụ trách
           <Tag style={{ marginLeft: 8, borderRadius: 20 }} color="blue">{myTasks.length}</Tag>
         </span>
       ),
@@ -205,7 +205,7 @@ export default function TasksPage() {
       key: 'assigned',
       label: (
         <span>
-          Tôi đã giao
+          Nhiệm vụ đã giao
           <Tag style={{ marginLeft: 8, borderRadius: 20 }} color="gold">{assignedTasks.length}</Tag>
         </span>
       ),
