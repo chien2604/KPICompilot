@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import chatbot, conversations, departments, evidences, kpi, reports, tasks, users
+from api.routes import auth, chatbot, conversations, departments, evidences, kpi, reports, tasks, users
 from core.config import get_settings
 from core.logging import configure_logging
 
@@ -17,6 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(users.router, prefix=settings.api_prefix)
 app.include_router(departments.router, prefix=settings.api_prefix)
 app.include_router(tasks.router, prefix=settings.api_prefix)

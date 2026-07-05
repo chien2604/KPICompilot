@@ -112,3 +112,28 @@ def update_status(task_id: int, payload: TaskStatusUpdate, db: Session = Depends
     db.commit()
     db.refresh(task)
     return task_to_dict(task)
+
+
+@router.patch("/{task_id}/assignments/{user_id}/score")
+def score_assignment(
+    task_id: int,
+    user_id: int,
+    leader_score: float = Query(..., ge=0, le=100),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Cấp trên chấm điểm cho một người được giao nhiệm vụ."""
+    assignment = db.query(TaskAssignment).filter(
+        TaskAssignment.task_id == task_id,
+        TaskAssignment.user_id == user_id,
+    ).first()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Không tìm thấy phân công nhiệm vụ")
+    assignment.leader_score = leader_score
+    assignment.final_score = (
+        (assignment.self_score or 0) * 0.3 + leader_score * 0.7
+        if assignment.self_score is not None
+        else leader_score
+    )
+    db.commit()
+    db.refresh(assignment.task)
+    return task_to_dict(assignment.task)

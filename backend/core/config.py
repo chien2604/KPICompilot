@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     upload_dir: Path = BASE_DIR / "storage" / "uploads"
     kuzu_db_path: Path = BASE_DIR / "storage" / "kuzu_db"
     cors_origins: str = "http://localhost:5180,http://127.0.0.1:5180"
+    jwt_secret_key: str = "change-me-in-production-super-secret-key-kpi-copilot"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24 * 7  # 7 ngày
 
     model_config = SettingsConfigDict(env_file=BASE_DIR / ".env", env_file_encoding="utf-8", extra="ignore")
 
