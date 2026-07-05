@@ -256,32 +256,20 @@ def _seed_chat_logs_and_reports(db, users: list[User]) -> None:
         ("WEEKLY", "2026-W24", {"tasks_by_status": {"COMPLETED": 140, "IN_PROGRESS": 18, "NOT_STARTED": 3, "OVERDUE": 8}, "total_tasks": 169, "risk_users": []}),
     ]
     for report_type, period, data in report_specs:
-        tasks_by_status = data.get("tasks_by_status", {})
-        risk_users_data = data.get("risk_users", [])
-        risk_rows = "".join(
-            f"<tr><td>{r['name']}</td><td>{r['department']}</td><td>{r['score']}</td><td>{r['risk']}</td></tr>"
-            for r in risk_users_data
-        )
-        content = (
-            f"<h2>Báo cáo {report_type} — Kỳ {period}</h2>"
-            f"<p>Tổng nhiệm vụ: {data.get('total_tasks', 0)} | "
-            f"Hoàn thành: {tasks_by_status.get('COMPLETED', 0)} | "
-            f"Đang thực hiện: {tasks_by_status.get('IN_PROGRESS', 0)} | "
-            f"Quá hạn: {tasks_by_status.get('OVERDUE', 0)}</p>"
-            + (
-                f"<h3>Cán bộ rủi ro KPI</h3>"
-                f"<table><thead><tr><th>Họ tên</th><th>Phòng ban</th><th>Điểm</th><th>Rủi ro</th></tr></thead>"
-                f"<tbody>{risk_rows}</tbody></table>"
-                if risk_users_data else ""
-            )
-        )
+        completed = data['tasks_by_status']['COMPLETED']
+        in_progress = data['tasks_by_status']['IN_PROGRESS']
+        overdue = data['tasks_by_status']['OVERDUE']
+        content_md = f"# Báo cáo {report_type} - {period}\n\n## 1. Tình hình chung\n- Tổng số nhiệm vụ: {data['total_tasks']}\n- Đã hoàn thành: {completed}\n- Đang thực hiện: {in_progress}\n- Quá hạn: {overdue}\n\n## 2. Cán bộ rủi ro cao\n"
+        for ru in data.get("risk_users", []):
+            content_md += f"- **{ru['name']}** ({ru['department']}): Điểm KPI {ru['score']} ({ru['risk']})\n"
+            
         db.add(
             Report(
                 report_type=report_type,
                 period=period,
                 department_id=None,
-                content=content,
-                summary_json={"seed": True, "_source": "seed", **data},
+                content=content_md,
+                summary_json={"seed": True, **data},
                 created_by=users[0].id,
             )
         )
