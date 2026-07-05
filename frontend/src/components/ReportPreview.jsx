@@ -4,17 +4,17 @@ import rehypeRaw from 'rehype-raw';
 import { riskColor } from '../utils/formatters';
 
 const STATUS_LABEL = {
-  COMPLETED:   'Hoàn thành',
+  COMPLETED: 'Hoàn thành',
   IN_PROGRESS: 'Đang thực hiện',
   NOT_STARTED: 'Chưa bắt đầu',
-  OVERDUE:     'Quá hạn',
+  OVERDUE: 'Quá hạn',
 };
 
 const STATUS_COLOR = {
-  COMPLETED:   '#16a34a',
+  COMPLETED: '#16a34a',
   IN_PROGRESS: '#f59e0b',
   NOT_STARTED: '#64748b',
-  OVERDUE:     '#dc2626',
+  OVERDUE: '#dc2626',
 };
 
 function TaskStatusTable({ tasksByStatus = {}, totalTasks }) {
@@ -31,7 +31,7 @@ function TaskStatusTable({ tasksByStatus = {}, totalTasks }) {
     key: '__total__',
     status: 'Tổng cộng',
     count: totalTasks,
-    color: '#0062ff',
+    color: '#1769aa',
     pct: 100,
     isTotal: true,
   });
@@ -110,8 +110,8 @@ export default function ReportPreview({ report }) {
 
   const summary = report.summary_json || {};
   const tasksByStatus = summary.tasks_by_status || {};
-  const totalTasks    = summary.total_tasks || 0;
-  const riskUsers     = summary.risk_users || [];
+  const totalTasks = summary.total_tasks || 0;
+  const riskUsers = summary.risk_users || [];
   const hasStructured = totalTasks > 0;
 
   return (

@@ -15,9 +15,9 @@ import ReportPreview from '../components/ReportPreview';
 import ReportEditorModal from '../components/ReportEditorModal';
 
 function getCurrentISOWeek() {
-  const date   = new Date();
+  const date = new Date();
   const target = new Date(date.valueOf());
-  const dayNr  = (target.getDay() + 6) % 7;
+  const dayNr = (target.getDay() + 6) % 7;
   target.setDate(target.getDate() - dayNr + 3);
   const firstThursday = new Date(target.getFullYear(), 0, 4);
   const firstThursdayDayNr = (firstThursday.getDay() + 6) % 7;
@@ -70,10 +70,10 @@ function ReportListItem({ item, active, onClick, onDelete }) {
 }
 
 export default function ReportsPage() {
-  const [reports, setReports]       = useState([]);
-  const [selected, setSelected]     = useState(null);
+  const [reports, setReports] = useState([]);
+  const [selected, setSelected] = useState(null);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [exporting, setExporting]   = useState(null);
+  const [exporting, setExporting] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [filterType, setFilterType] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -162,42 +162,42 @@ export default function ReportsPage() {
         {/* Cột trái — danh sách */}
         {sidebarOpen && (
           <Col xs={24} lg={7} className="reports-sidebar-col">
-          <Card
-            title={<span style={{ fontSize: 16, fontWeight: 700 }}>Danh sách báo cáo</span>}
-            style={{ height: '100%' }}
-            bodyStyle={{ padding: '12px 8px' }}
-          >
-            {/* Bộ lọc loại */}
-            <div className="report-type-filter">
-              {[null, 'WEEKLY', 'MONTHLY', 'QUARTERLY'].map((type) => (
-                <button
-                  key={type ?? 'all'}
-                  className={`report-type-btn ${filterType === type ? 'report-type-btn--active' : ''}`}
-                  onClick={() => setFilterType(type)}
-                  type="button"
-                >
-                  {type === null ? 'Tất cả' : TYPE_LABEL[type]}
-                </button>
-              ))}
-            </div>
-
-            {filteredReports.length === 0 ? (
-              <Empty description="Không có báo cáo" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-            ) : (
-              <div className="report-list2">
-                {filteredReports.map((item) => (
-                  <ReportListItem
-                    key={item.id}
-                    item={item}
-                    active={selected?.id === item.id}
-                    onClick={() => setSelected(item)}
-                    onDelete={removeReport}
-                  />
+            <Card
+              title={<span style={{ fontSize: 16, fontWeight: 700 }}>Danh sách báo cáo</span>}
+              style={{ height: '100%' }}
+              bodyStyle={{ padding: '12px 8px' }}
+            >
+              {/* Bộ lọc loại */}
+              <div className="report-type-filter">
+                {[null, 'WEEKLY', 'MONTHLY', 'QUARTERLY'].map((type) => (
+                  <button
+                    key={type ?? 'all'}
+                    className={`report-type-btn ${filterType === type ? 'report-type-btn--active' : ''}`}
+                    onClick={() => setFilterType(type)}
+                    type="button"
+                  >
+                    {type === null ? 'Tất cả' : TYPE_LABEL[type]}
+                  </button>
                 ))}
               </div>
-            )}
-          </Card>
-        </Col>
+
+              {filteredReports.length === 0 ? (
+                <Empty description="Không có báo cáo" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              ) : (
+                <div className="report-list2">
+                  {filteredReports.map((item) => (
+                    <ReportListItem
+                      key={item.id}
+                      item={item}
+                      active={selected?.id === item.id}
+                      onClick={() => setSelected(item)}
+                      onDelete={removeReport}
+                    />
+                  ))}
+                </div>
+              )}
+            </Card>
+          </Col>
         )}
 
         {/* Cột phải — preview */}
@@ -206,7 +206,7 @@ export default function ReportsPage() {
             title={
               selected ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <FileTextOutlined style={{ color: '#0062ff' }} />
+                  <FileTextOutlined style={{ color: '#1769aa' }} />
                   <span style={{ fontSize: 16, fontWeight: 700 }}>
                     Báo cáo {TYPE_LABEL[selected.report_type] || selected.report_type} — {selected.period}
                   </span>

@@ -29,9 +29,9 @@ export default function HeatmapPage() {
   const kpiColor = avgKpi !== null ? riskColor(avgKpi) : '#94a3b8';
 
   // Số dept đạt từng mức
-  const deptGood   = heatmapData.filter((d) => d.avg_kpi >= 85).length;
-  const deptWarn   = heatmapData.filter((d) => d.avg_kpi >= 70 && d.avg_kpi < 85).length;
-  const deptAlert  = heatmapData.filter((d) => d.avg_kpi < 70).length;
+  const deptGood = heatmapData.filter((d) => d.avg_kpi >= 85).length;
+  const deptWarn = heatmapData.filter((d) => d.avg_kpi >= 70 && d.avg_kpi < 85).length;
+  const deptAlert = heatmapData.filter((d) => d.avg_kpi < 70).length;
 
   return (
     <Space direction="vertical" size={18} className="page">
@@ -46,12 +46,12 @@ export default function HeatmapPage() {
         {/* Tổng nhân lực */}
         <Col xs={24} md={8}>
           <Card className="heatmap-summary-card">
-            <div className="heatmap-summary-card__icon" style={{ background: '#e6f0ff', color: '#0062ff' }}>
+            <div className="heatmap-summary-card__icon" style={{ background: '#e8f3fc', color: '#1769aa' }}>
               <TeamOutlined />
             </div>
             <div className="heatmap-summary-card__body">
               <div className="heatmap-summary-card__label">Tổng nhân lực</div>
-              <div className="heatmap-summary-card__value" style={{ color: '#0062ff' }}>{totalStaff}</div>
+              <div className="heatmap-summary-card__value" style={{ color: '#1769aa' }}>{totalStaff}</div>
               <div className="heatmap-summary-card__sub">{departments.length} đơn vị</div>
             </div>
           </Card>

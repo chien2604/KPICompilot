@@ -92,11 +92,11 @@ export default function EmployeeProfilePage() {
   );
 
   const FILTER_OPTIONS = [
-    { value: null,          label: 'Tất cả',          color: '#0062ff' },
-    { value: 'COMPLETED',   label: 'Hoàn thành',      color: '#16a34a' },
-    { value: 'IN_PROGRESS', label: 'Đang thực hiện',  color: '#f59e0b' },
-    { value: 'NOT_STARTED', label: 'Chưa bắt đầu',   color: '#64748b' },
-    { value: 'OVERDUE',     label: 'Quá hạn',         color: '#dc2626' },
+    { value: null, label: 'Tất cả', color: '#1769aa' },
+    { value: 'COMPLETED', label: 'Hoàn thành', color: '#16a34a' },
+    { value: 'IN_PROGRESS', label: 'Đang thực hiện', color: '#f59e0b' },
+    { value: 'NOT_STARTED', label: 'Chưa bắt đầu', color: '#64748b' },
+    { value: 'OVERDUE', label: 'Quá hạn', color: '#dc2626' },
   ];
 
   if (!profile) return <Empty description="Đang tải hồ sơ" />;
@@ -106,18 +106,18 @@ export default function EmployeeProfilePage() {
   // Thống kê tác nghiệp từ tasks
   const taskStats = {
     total: tasks?.length || 0,
-    COMPLETED:   tasks?.filter(t => t.status === 'COMPLETED').length   || 0,
+    COMPLETED: tasks?.filter(t => t.status === 'COMPLETED').length || 0,
     IN_PROGRESS: tasks?.filter(t => t.status === 'IN_PROGRESS').length || 0,
     NOT_STARTED: tasks?.filter(t => t.status === 'NOT_STARTED').length || 0,
-    OVERDUE:     tasks?.filter(t => t.status === 'OVERDUE').length     || 0,
+    OVERDUE: tasks?.filter(t => t.status === 'OVERDUE').length || 0,
   };
 
   const TASK_ITEMS = [
-    { label: 'Tổng nhiệm vụ',    value: taskStats.total,       color: '#0062ff', bg: '#e6f0ff' },
-    { label: 'Hoàn thành',       value: taskStats.COMPLETED,   color: '#16a34a', bg: '#dcfce7' },
-    { label: 'Đang thực hiện',   value: taskStats.IN_PROGRESS, color: '#f59e0b', bg: '#fef9c3' },
-    { label: 'Chưa bắt đầu',     value: taskStats.NOT_STARTED, color: '#64748b', bg: '#f1f5f9' },
-    { label: 'Quá hạn',          value: taskStats.OVERDUE,     color: '#dc2626', bg: '#fee2e2' },
+    { label: 'Tổng nhiệm vụ', value: taskStats.total, color: '#1769aa', bg: '#e8f3fc' },
+    { label: 'Hoàn thành', value: taskStats.COMPLETED, color: '#16a34a', bg: '#dcfce7' },
+    { label: 'Đang thực hiện', value: taskStats.IN_PROGRESS, color: '#f59e0b', bg: '#fef9c3' },
+    { label: 'Chưa bắt đầu', value: taskStats.NOT_STARTED, color: '#64748b', bg: '#f1f5f9' },
+    { label: 'Quá hạn', value: taskStats.OVERDUE, color: '#dc2626', bg: '#fee2e2' },
   ];
 
   return (
@@ -135,7 +135,7 @@ export default function EmployeeProfilePage() {
                   size={96}
                   src={user.avatar_url}
                   icon={<UserOutlined />}
-                  style={{ background: '#e6f0ff', color: '#0062ff', fontSize: 40 }}
+                  style={{ background: '#e8f3fc', color: '#1769aa', fontSize: 40 }}
                 />
                 <div className="profile-avatar-info">
                   <div className="profile-avatar-name">{user.full_name}</div>
@@ -150,10 +150,10 @@ export default function EmployeeProfilePage() {
             {/* Thông tin cán bộ */}
             <Card title={<span style={{ fontSize: 16, fontWeight: 700 }}>Thông tin cán bộ</span>}>
               <div className="profile-info-list">
-                <InfoRow icon={<MailOutlined />}      label="Email"       value={user.email} />
-                <InfoRow icon={<BankOutlined />}      label="Đơn vị"      value={user.department} />
-                <InfoRow icon={<IdcardOutlined />}    label="Chức vụ"     value={user.position_title} />
-                <InfoRow icon={<UserOutlined />}      label="Vai trò"     value={roleLabel[user.role] || user.role} />
+                <InfoRow icon={<MailOutlined />} label="Email" value={user.email} />
+                <InfoRow icon={<BankOutlined />} label="Đơn vị" value={user.department} />
+                <InfoRow icon={<IdcardOutlined />} label="Chức vụ" value={user.position_title} />
+                <InfoRow icon={<UserOutlined />} label="Vai trò" value={roleLabel[user.role] || user.role} />
                 <InfoRow
                   icon={<SafetyCertificateOutlined />}
                   label="Mẫu KPI"

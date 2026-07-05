@@ -2,10 +2,10 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { statusLabel } from '../utils/formatters';
 
 const STATUS_COLOR = {
-  COMPLETED:   '#16a34a',
-  IN_PROGRESS: '#0062ff',
+  COMPLETED: '#16a34a',
+  IN_PROGRESS: '#1769aa',
   NOT_STARTED: '#64748b',
-  OVERDUE:     '#dc2626',
+  OVERDUE: '#dc2626',
 };
 
 const STATUS_ORDER = ['COMPLETED', 'IN_PROGRESS', 'NOT_STARTED', 'OVERDUE'];

@@ -11,18 +11,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       locale={viVN}
       theme={{
         token: {
-          colorPrimary: '#0062ff',
+          colorPrimary: '#1769aa',
           borderRadius: 8,
           fontFamily: "'Be Vietnam Pro', sans-serif",
           fontSize: 16,
         },
-        components: {
-          Button: {
-            colorPrimary: '#0062ff',
-            colorPrimaryHover: '#3385ff',
-            colorPrimaryActive: '#0052cc',
-          },
-        },
+        components: {},
       }}
     >
       <App />

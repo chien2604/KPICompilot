@@ -65,20 +65,20 @@ export default function KpiEvaluationPage() {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
 
-  const [score, setScore]       = useState(null);
-  const [profile, setProfile]   = useState(null);
-  const [loading, setLoading]   = useState(false);
+  const [score, setScore] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [computing, setComputing] = useState(false);
 
   // Phân quyền chấm
   const [assignable, setAssignable] = useState([]);   // danh sách người có thể chấm
-  const [canScore, setCanScore]     = useState(false); // user này có nằm trong danh sách không
+  const [canScore, setCanScore] = useState(false); // user này có nằm trong danh sách không
 
   // Chấm điểm nhiệm vụ
-  const [tasks, setTasks]           = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
-  const [draftScores, setDraftScores]   = useState({});  // { taskId: số }
-  const [saving, setSaving]             = useState({});  // { taskId: bool }
+  const [draftScores, setDraftScores] = useState({});  // { taskId: số }
+  const [saving, setSaving] = useState({});  // { taskId: bool }
 
   /* ── Load KPI ─────────────────────────────────────── */
   const load = () => {
@@ -155,9 +155,9 @@ export default function KpiEvaluationPage() {
     label: `${u.full_name} — ${u.position_title || ''}`,
   }));
 
-  const user  = profile?.user;
+  const user = profile?.user;
   const color = score ? riskColor(score.total_score) : '#94a3b8';
-  const rows  = score?.breakdown_json?.breakdown || [];
+  const rows = score?.breakdown_json?.breakdown || [];
 
   /* ── Cột bảng chấm nhiệm vụ ─────────────────────── */
   const scoringColumns = [
@@ -273,7 +273,7 @@ export default function KpiEvaluationPage() {
                 <div className="kpi-user-header">
                   <Avatar
                     size={72} src={user?.avatar_url} icon={<UserOutlined />}
-                    style={{ background: '#e6f0ff', color: '#0062ff', fontSize: 32, flexShrink: 0 }}
+                    style={{ background: '#e8f3fc', color: '#1769aa', fontSize: 32, flexShrink: 0 }}
                   />
                   <div>
                     <div className="kpi-user-name">{user?.full_name || '—'}</div>
@@ -281,9 +281,9 @@ export default function KpiEvaluationPage() {
                   </div>
                 </div>
                 <div className="kpi-info-list">
-                  <InfoItem icon={<BankOutlined />}              label="Đơn vị"       value={user?.department} />
-                  <InfoItem icon={<IdcardOutlined />}            label="Chức vụ"      value={user?.position_title} />
-                  <InfoItem icon={<SafetyCertificateOutlined />} label="Kỳ đánh giá"  value={score?.period_month} />
+                  <InfoItem icon={<BankOutlined />} label="Đơn vị" value={user?.department} />
+                  <InfoItem icon={<IdcardOutlined />} label="Chức vụ" value={user?.position_title} />
+                  <InfoItem icon={<SafetyCertificateOutlined />} label="Kỳ đánh giá" value={score?.period_month} />
                 </div>
               </Card>
             </Col>

@@ -28,7 +28,20 @@ body {
 .ant-dropdown,
 .ant-message,
 .ant-notification,
-h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span,
+div,
+a,
+button,
+input,
+textarea,
+select {
   font-family: 'Be Vietnam Pro', sans-serif !important;
 }
 
@@ -46,7 +59,7 @@ h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select {
   overflow-y: auto;
   overflow-x: hidden;
   border-right: 1px solid #f0f0f0;
-  box-shadow: 2px 0 12px rgba(0,0,0,0.04);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
 }
@@ -78,16 +91,16 @@ h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select {
 }
 
 .app-sidebar .ant-menu-item:hover {
-  background: #f0f5ff !important;
-  color: #0062ff !important;
+  background: #f0f7ff !important;
+  color: #1769aa !important;
   transform: translateX(2px);
 }
 
 .app-sidebar .ant-menu-item-selected {
-  background: linear-gradient(135deg, #e6f0ff 0%, #cce0ff 100%) !important;
-  color: #0062ff !important;
+  background: linear-gradient(135deg, #e8f3fc 0%, #dbeafe 100%) !important;
+  color: #1769aa !important;
   font-weight: 700 !important;
-  box-shadow: 0 2px 8px rgba(0, 98, 255, 0.15) !important;
+  box-shadow: 0 2px 8px rgba(23, 105, 170, 0.12) !important;
 }
 
 .app-sidebar .ant-menu-item-selected::before {
@@ -98,7 +111,7 @@ h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select {
   transform: translateY(-50%);
   width: 3px;
   height: 60%;
-  background: #0062ff;
+  background: #1769aa;
   border-radius: 0 3px 3px 0;
 }
 
@@ -189,7 +202,7 @@ h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select {
   opacity: 0.9;
   min-width: 64px;
   padding-left: 8px;
-  border-left: 1px solid rgba(255,255,255,0.3);
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .user-select {
@@ -203,27 +216,27 @@ h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select {
 }
 
 .header-select .ant-select-selector {
-  background: rgba(255,255,255,0.18) !important;
-  border-color: rgba(255,255,255,0.35) !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
   color: #fff !important;
   border-radius: 8px !important;
   height: 34px !important;
 }
 
 .header-select .ant-select-selector:hover {
-  background: rgba(255,255,255,0.28) !important;
-  border-color: rgba(255,255,255,0.7) !important;
+  background: rgba(255, 255, 255, 0.28) !important;
+  border-color: rgba(255, 255, 255, 0.7) !important;
 }
 
 .header-select .ant-select-selection-placeholder {
-  color: rgba(255,255,255,0.7) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
   font-size: 16px !important;
   line-height: 34px !important;
 }
 
 .header-select .ant-select-arrow,
 .header-select .ant-select-clear {
-  color: rgba(255,255,255,0.8) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
 }
 
 .header-select .ant-select-selection-item {
@@ -333,8 +346,8 @@ h3.ant-typography {
   height: 48px;
   display: grid;
   place-items: center;
-  color: #0062ff;
-  background: #e6f0ff;
+  color: #1769aa;
+  background: #e8f3fc;
   border-radius: 8px;
   font-size: 22px;
 }
@@ -526,14 +539,14 @@ h3.ant-typography {
   text-align: center;
   min-width: 200px;
   max-width: 260px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   transition: box-shadow 0.15s;
   position: relative;
   z-index: 1;
 }
 
 .org-card:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 .org-card--root {
@@ -590,7 +603,7 @@ h3.ant-typography {
 }
 
 .org-card__position-btn:hover {
-  background: rgba(0,0,0,0.04);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .org-card__position-name {
@@ -715,7 +728,7 @@ h3.ant-typography {
 
 .chatbox__msg--user {
   margin-left: auto;
-  background: #e6f0ff;
+  background: #e8f3fc;
   justify-content: flex-end;
 }
 
@@ -758,8 +771,8 @@ h3.ant-typography {
 }
 
 .conversation-item--active {
-  color: #0062ff;
-  background: #e6f0ff;
+  color: #0f4c81;
+  background: #e8f3fc;
   font-weight: 700;
 }
 
@@ -857,6 +870,7 @@ h3.ant-typography {
   margin-top: 16px;
   margin-bottom: 8px;
 }
+
 /* ───────────────────────────────────────────────────────────
    Report blocks (structured report rendering) — bổ sung cho
    tính năng sinh báo cáo có cấu trúc + edit/export PDF/DOCX
@@ -906,7 +920,7 @@ h3.ant-typography {
 .report-kpi-stat-value {
   font-size: 24px;
   font-weight: 800;
-  color: #0062ff;
+  color: #1769aa;
 }
 
 .report-kpi-stat-label {
@@ -949,9 +963,9 @@ h3.ant-typography {
     flex-direction: column;
   }
 }
- 
+
 .report-list-item--active {
-  background: #e6f0ff;
+  background: #e8f3fc;
   border-radius: 6px;
 }
 
@@ -970,7 +984,7 @@ h3.ant-typography {
   margin-top: 10px !important;
   margin-bottom: 24px !important;
 }
- 
+
 
 /* ── Heatmap summary cards ── */
 .heatmap-summary-card .ant-card-body {
@@ -1104,7 +1118,7 @@ h3.ant-typography {
   place-items: center;
   background: #f1f5f9;
   border-radius: 8px;
-  color: #0062ff;
+  color: #1769aa;
   font-size: 16px;
   flex-shrink: 0;
 }
@@ -1214,7 +1228,7 @@ h3.ant-typography {
 .task-stats-item__bar-wrap {
   width: 100%;
   height: 4px;
-  background: rgba(0,0,0,0.08);
+  background: rgba(0, 0, 0, 0.08);
   border-radius: 2px;
   overflow: hidden;
   margin-top: 4px;
@@ -1289,12 +1303,12 @@ h3.ant-typography {
 
 /* ── Evidences page — font 16px ── */
 .page .ant-table,
-.page .ant-table-thead > tr > th,
-.page .ant-table-tbody > tr > td,
+.page .ant-table-thead>tr>th,
+.page .ant-table-tbody>tr>td,
 .page .ant-table-footer,
 .page .ant-pagination,
 .page .ant-pagination-item,
-.page .ant-form-item-label > label,
+.page .ant-form-item-label>label,
 .page .ant-select-selection-item,
 .page .ant-select-selection-placeholder,
 .page .ant-btn,
@@ -1308,30 +1322,30 @@ h3.ant-typography {
   transition: background 0.15s;
 }
 
-.evidence-table-row:hover > td {
+.evidence-table-row:hover>td {
   background: #eff6ff !important;
 }
 
 /* ── KPI Evaluation page — font 16px ── */
 .page .ant-descriptions-item-label,
 .page .ant-descriptions-item-content,
-.page .ant-table-thead > tr > th,
-.page .ant-table-tbody > tr > td,
+.page .ant-table-thead>tr>th,
+.page .ant-table-tbody>tr>td,
 .page .ant-progress-text,
 .page .ant-spin-text {
   font-size: 16px !important;
 }
 
 /* ── Table header — đậm rõ hơn ── */
-.ant-table-thead > tr > th,
-.ant-table-thead > tr > td {
+.ant-table-thead>tr>th,
+.ant-table-thead>tr>td {
   background: rgba(159, 108, 77, 0.12) !important;
   color: rgb(159, 108, 77) !important;
   font-weight: 700 !important;
   border-bottom: 2px solid rgba(159, 108, 77, 0.3) !important;
 }
 
-.ant-table-thead > tr > th::before {
+.ant-table-thead>tr>th::before {
   background-color: rgba(159, 108, 77, 0.25) !important;
 }
 
@@ -1383,7 +1397,7 @@ h3.ant-typography {
   place-items: center;
   background: #f1f5f9;
   border-radius: 8px;
-  color: #0062ff;
+  color: #1769aa;
   font-size: 16px;
   flex-shrink: 0;
 }
@@ -1451,7 +1465,7 @@ h3.ant-typography {
   font-weight: 600;
 }
 
-.kpi-matrix-row:hover > td {
+.kpi-matrix-row:hover>td {
   background: #fef9f5 !important;
 }
 
@@ -1530,7 +1544,7 @@ h3.ant-typography {
 }
 
 .chatbox2__avatar--user {
-  background: #0062ff;
+  background: #1769aa;
   color: #fff;
 }
 
@@ -1550,7 +1564,7 @@ h3.ant-typography {
 }
 
 .chatbox2__bubble--user {
-  background: #0062ff;
+  background: #1769aa;
   color: #fff;
   border-top-right-radius: 4px;
 }
@@ -1575,12 +1589,27 @@ h3.ant-typography {
   animation: typing-bounce 1.2s infinite;
 }
 
-.chatbox2__bubble--typing span:nth-child(2) { animation-delay: 0.2s; }
-.chatbox2__bubble--typing span:nth-child(3) { animation-delay: 0.4s; }
+.chatbox2__bubble--typing span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.chatbox2__bubble--typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 @keyframes typing-bounce {
-  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-  40%           { transform: translateY(-6px); opacity: 1; }
+
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+
+  40% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
 }
 
 /* Input area */
@@ -1653,8 +1682,8 @@ h3.ant-typography {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: #e6f0ff;
-  color: #0062ff;
+  background: #e8f3fc;
+  color: #1769aa;
   display: grid;
   place-items: center;
   font-size: 16px;
@@ -1755,7 +1784,7 @@ h3.ant-typography {
 }
 
 /* KPI matrix summary row */
-.kpi-matrix-summary-row > td {
+.kpi-matrix-summary-row>td {
   background: #f8fafc !important;
   border-top: 2px solid #e5e7eb !important;
 }
@@ -1808,7 +1837,8 @@ h3.ant-typography {
 
 .reports-sidebar-col {
   position: sticky;
-  top: 96px; /* header 80px + gap 16px */
+  top: 96px;
+  /* header 80px + gap 16px */
   max-height: calc(100vh - 112px);
   overflow-y: auto;
 }
@@ -1849,9 +1879,9 @@ h3.ant-typography {
 }
 
 .sidebar-collapse-btn:hover {
-  background: #f0f5ff;
-  border-color: #0062ff;
-  color: #0062ff;
+  background: #f0f7ff;
+  border-color: #1769aa;
+  color: #1769aa;
 }
 
 .sidebar-collapse-btn__text {
@@ -1910,7 +1940,7 @@ h3.ant-typography {
   height: 500px;
   background: #fff;
   border-radius: 16px;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.16);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.16);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1921,8 +1951,15 @@ h3.ant-typography {
 }
 
 @keyframes popup-in {
-  from { opacity: 0; transform: translateY(16px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .floating-copilot__header {
@@ -1956,7 +1993,10 @@ h3.ant-typography {
   align-items: center;
 }
 
-.floating-copilot__close:hover { opacity: 1; background: rgba(255,255,255,0.15); }
+.floating-copilot__close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.15);
+}
 
 .floating-copilot__messages {
   flex: 1;
@@ -1989,7 +2029,9 @@ h3.ant-typography {
   gap: 8px;
 }
 
-.floating-copilot__msg--user { flex-direction: row-reverse; }
+.floating-copilot__msg--user {
+  flex-direction: row-reverse;
+}
 
 .floating-copilot__avatar {
   width: 28px;
@@ -2001,8 +2043,15 @@ h3.ant-typography {
   flex-shrink: 0;
 }
 
-.floating-copilot__avatar--assistant { background: #C0392B; color: #fff; }
-.floating-copilot__avatar--user { background: #0062ff; color: #fff; }
+.floating-copilot__avatar--assistant {
+  background: #C0392B;
+  color: #fff;
+}
+
+.floating-copilot__avatar--user {
+  background: #1769aa;
+  color: #fff;
+}
 
 .floating-copilot__bubble {
   max-width: 82%;
@@ -2019,12 +2068,14 @@ h3.ant-typography {
 }
 
 .floating-copilot__bubble--user {
-  background: #0062ff;
+  background: #1769aa;
   color: #fff;
   border-top-right-radius: 3px;
 }
 
-.floating-copilot__bubble--user .ai-markdown-container { color: #fff; }
+.floating-copilot__bubble--user .ai-markdown-container {
+  color: #fff;
+}
 
 /* Typing */
 .floating-copilot__bubble--typing {
@@ -2042,8 +2093,13 @@ h3.ant-typography {
   animation: typing-bounce 1.2s infinite;
 }
 
-.floating-copilot__bubble--typing span:nth-child(2) { animation-delay: 0.2s; }
-.floating-copilot__bubble--typing span:nth-child(3) { animation-delay: 0.4s; }
+.floating-copilot__bubble--typing span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.floating-copilot__bubble--typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 /* Input */
 .floating-copilot__input-wrap {
@@ -2108,9 +2164,9 @@ h3.ant-typography {
   align-items: center;
   gap: 10px;
   padding: 6px 12px;
-  background: rgba(255,255,255,0.12);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 40px;
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .header-user-info__text {
@@ -2295,10 +2351,10 @@ h3.ant-typography {
   border-color: #bfdbfe !important;
 }
 
-.ant-table-tbody > tr:hover > td {
+.ant-table-tbody>tr:hover>td {
   background: #f8faff !important;
 }
 
-.ant-table-tbody > tr {
+.ant-table-tbody>tr {
   cursor: pointer;
 }
