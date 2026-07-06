@@ -58,7 +58,7 @@ export default function AppLayout() {
 
   const menuItems = [
     { key: '/dashboard', icon: <BarChartOutlined />, label: 'Tổng quan' },
-    { key: '/heatmap', icon: <HeatMapOutlined />, label: 'Heatmap' },
+    ...(user?.level <= 2 ? [{ key: '/heatmap', icon: <HeatMapOutlined />, label: 'Heatmap' }] : []),
     { key: `/employees/${userId}`, icon: <TeamOutlined />, label: 'Hồ sơ' },
     { key: '/tasks', icon: <ProjectOutlined />, label: 'Công việc' },
     { key: '/evidences', icon: <FileSearchOutlined />, label: 'Minh chứng' },

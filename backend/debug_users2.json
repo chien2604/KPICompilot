@@ -1,0 +1,22 @@
+{
+  "1": {
+    "id": 1,
+    "pos": "Giám đốc Sở"
+  },
+  "2": {
+    "id": 2,
+    "pos": "Phó Giám đốc Sở"
+  },
+  "3": {
+    "id": 4,
+    "pos": "Trưởng phòng"
+  },
+  "4": {
+    "id": 5,
+    "pos": "Phó trưởng phòng"
+  },
+  "5": {
+    "id": 12,
+    "pos": "Chuyên viên"
+  }
+}

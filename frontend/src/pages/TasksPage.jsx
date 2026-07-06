@@ -13,10 +13,10 @@ import { useAuth } from '../contexts/AuthContext';
 import TaskTable from '../components/TaskTable';
 
 const STATUS_OPTIONS = [
-  { value: 'COMPLETED',   label: 'Hoàn thành',     color: '#16a34a' },
+  { value: 'COMPLETED', label: 'Hoàn thành', color: '#16a34a' },
   { value: 'IN_PROGRESS', label: 'Đang thực hiện', color: '#f59e0b' },
-  { value: 'NOT_STARTED', label: 'Chưa bắt đầu',  color: '#64748b' },
-  { value: 'OVERDUE',     label: 'Quá hạn',        color: '#dc2626' },
+  { value: 'NOT_STARTED', label: 'Chưa bắt đầu', color: '#64748b' },
+  { value: 'OVERDUE', label: 'Quá hạn', color: '#dc2626' },
 ];
 
 export default function TasksPage() {
@@ -28,17 +28,20 @@ export default function TasksPage() {
   const [assignableUsers, setAssignableUsers] = useState([]);
 
   // Tasks của mình (được giao cho mình)
-  const [myTasks, setMyTasks]         = useState([]);
-  // Tasks mình đã giao cho cấp dưới
+  const [myTasks, setMyTasks] = useState([]);
+  // Tasks mình đã tạo (giao cho cấp dưới)
   const [assignedTasks, setAssignedTasks] = useState([]);
+  // Toàn bộ tasks của cơ quan (Chỉ giám đốc)
+  const [allTasks, setAllTasks] = useState([]);
 
-  const [open, setOpen]               = useState(false);
-  const [scoreModal, setScoreModal]   = useState(null); // { taskId, userId, userName }
-  const [form]                        = Form.useForm();
-  const [scoreForm]                   = Form.useForm();
+  const [open, setOpen] = useState(false);
+  const [editTaskId, setEditTaskId] = useState(null);
+  const [scoreModal, setScoreModal] = useState(null); // { taskId, userId, userName }
+  const [form] = Form.useForm();
+  const [scoreForm] = Form.useForm();
 
   // Bộ lọc
-  const [filterStatus,    setFilterStatus]    = useState(null);
+  const [filterStatus, setFilterStatus] = useState(null);
   const [filterDateRange, setFilterDateRange] = useState(null);
 
   // Tab đang active
@@ -52,6 +55,10 @@ export default function TasksPage() {
     // Task mình đã tạo (giao cho cấp dưới)
     if (canAssign) {
       taskApi.list({ creator_id: myId }).then(setAssignedTasks);
+    }
+    // Tổng nhiệm vụ (Giám đốc: toàn Sở, Trưởng phòng: toàn phòng)
+    if (user?.level <= 4) {
+      taskApi.list({}).then(setAllTasks);
     }
   };
 
@@ -77,7 +84,7 @@ export default function TasksPage() {
     if (filterStatus) result = result.filter((t) => t.status === filterStatus);
     if (filterDateRange?.[0] && filterDateRange?.[1]) {
       const from = filterDateRange[0].startOf('day');
-      const to   = filterDateRange[1].endOf('day');
+      const to = filterDateRange[1].endOf('day');
       result = result.filter((t) => {
         if (!t.deadline) return false;
         const d = dayjs(t.deadline);
@@ -87,25 +94,47 @@ export default function TasksPage() {
     return result;
   };
 
-  const filteredMine     = useMemo(() => applyFilter(myTasks),     [myTasks,     filterStatus, filterDateRange]);
+  const filteredMine = useMemo(() => applyFilter(myTasks), [myTasks, filterStatus, filterDateRange]);
   const filteredAssigned = useMemo(() => applyFilter(assignedTasks), [assignedTasks, filterStatus, filterDateRange]);
+  const filteredAll = useMemo(() => applyFilter(allTasks), [allTasks, filterStatus, filterDateRange]);
 
   const hasFilter = filterStatus || filterDateRange;
   const clearFilters = () => { setFilterStatus(null); setFilterDateRange(null); };
 
-  /* ── Tạo nhiệm vụ ────────────────────────────── */
-  const createTask = async () => {
+  /* ── Tạo/Sửa nhiệm vụ ────────────────────────────── */
+  const saveTask = async () => {
     const values = await form.validateFields();
-    await taskApi.create({
+    const payload = {
       ...values,
-      creator_id: myId,
+      deadline: values.deadline ? values.deadline.format('YYYY-MM-DD') : null,
       assigned_user_ids: values.assigned_user_ids || [],
-    });
-    message.success('Đã tạo nhiệm vụ');
+    };
+    
+    if (editTaskId) {
+      await taskApi.update(editTaskId, payload);
+      message.success('Đã cập nhật nhiệm vụ');
+    } else {
+      await taskApi.create({ ...payload, creator_id: myId });
+      message.success('Đã tạo nhiệm vụ');
+      setActiveTab('assigned'); // chuyển sang tab đã giao nếu tạo mới
+    }
+    
     setOpen(false);
+    setEditTaskId(null);
     form.resetFields();
     loadAll();
-    setActiveTab('assigned'); // chuyển sang tab đã giao
+  };
+
+  const handleEditTask = (task) => {
+    setEditTaskId(task.id);
+    form.setFieldsValue({
+      title: task.title,
+      description: task.description,
+      document_type: task.document_type,
+      deadline: task.deadline ? dayjs(task.deadline) : null,
+      assigned_user_ids: task.assignees?.map(a => a.user_id) || [],
+    });
+    setOpen(true);
   };
 
   /* ── Chấm điểm ───────────────────────────────── */
@@ -219,6 +248,30 @@ export default function TasksPage() {
               assignableUserIds={new Set(assignableUsers.map((u) => u.id))}
               onScoreAssignment={(taskId, userId, userName) => setScoreModal({ taskId, userId, userName })}
               onStatusChange={updateTaskStatus}
+              onEditTask={handleEditTask}
+            />
+          </Card>
+        </>
+      ),
+    }] : []),
+    ...(user?.level <= 4 ? [{
+      key: 'all',
+      label: (
+        <span>
+          {user?.level <= 2 ? 'Tổng nhiệm vụ (Toàn Sở)' : 'Tổng nhiệm vụ (Toàn Phòng)'}
+          <Tag style={{ marginLeft: 8, borderRadius: 20 }} color="magenta">{allTasks.length}</Tag>
+        </span>
+      ),
+      children: (
+        <>
+          <FilterBar total={allTasks.length} shown={filteredAll.length} />
+          <Card>
+            <TaskTable
+              data={filteredAll}
+              canScore={false} // Lãnh đạo chỉ xem tổng quan, chấm điểm ở phần nhiệm vụ đã giao
+              assignableUserIds={new Set()}
+              onStatusChange={updateTaskStatus}
+              onEditTask={handleEditTask}
             />
           </Card>
         </>
@@ -248,18 +301,21 @@ export default function TasksPage() {
         style={{ background: 'transparent' }}
       />
 
-      {/* Modal tạo nhiệm vụ */}
+      {/* Modal tạo/sửa nhiệm vụ */}
       <Modal
-        title="Tạo nhiệm vụ mới"
+        title={editTaskId ? "Sửa nhiệm vụ" : "Tạo nhiệm vụ mới"}
         open={open}
-        onOk={createTask}
-        onCancel={() => { setOpen(false); form.resetFields(); }}
-        okText="Tạo"
+        onOk={saveTask}
+        onCancel={() => { setOpen(false); setEditTaskId(null); form.resetFields(); }}
+        okText={editTaskId ? "Lưu lại" : "Tạo"}
         cancelText="Huỷ"
       >
         <Form layout="vertical" form={form} initialValues={{ document_type: 'C', status: 'NOT_STARTED', priority: 'MEDIUM' }}>
           <Form.Item name="title" label="Tên nhiệm vụ" rules={[{ required: true, message: 'Vui lòng nhập tên nhiệm vụ' }]}>
             <Input />
+          </Form.Item>
+          <Form.Item name="deadline" label="Hạn xử lý (Deadline)" rules={[{ required: true, message: 'Vui lòng chọn hạn xử lý' }]}>
+            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" placeholder="Chọn ngày..." />
           </Form.Item>
           <Form.Item name="description" label="Mô tả">
             <Input.TextArea rows={3} />

@@ -27,7 +27,7 @@ const STATUS_OPTIONS = [
   { value: 'OVERDUE',     label: 'Quá hạn',        color: '#1d4ed8' },
 ];
 
-function TaskDetailDrawer({ task, open, onClose, onStatusChange }) {
+function TaskDetailDrawer({ task, open, onClose, onStatusChange, onEditTask }) {
   if (!task) return null;
 
   const totalAssignees = task.assignees?.length || 0;
@@ -48,6 +48,13 @@ function TaskDetailDrawer({ task, open, onClose, onStatusChange }) {
       onClose={onClose}
       width={520}
       styles={{ body: { padding: '20px 24px' } }}
+      extra={
+        onEditTask && (
+          <Button type="primary" onClick={() => { onEditTask(task); onClose(); }}>
+            Sửa nhiệm vụ
+          </Button>
+        )
+      }
     >
       {/* Tiêu đề nhiệm vụ */}
       <div style={{ marginBottom: 20 }}>
@@ -177,6 +184,7 @@ export default function TaskTable({
   assignableUserIds = new Set(),
   onScoreAssignment,
   onStatusChange,
+  onEditTask,
 }) {
   const [selected, setSelected] = useState(null);
 
@@ -262,6 +270,7 @@ export default function TaskTable({
         open={!!selected}
         onClose={() => setSelected(null)}
         onStatusChange={handleStatusChange}
+        onEditTask={onEditTask}
       />
     </>
   );

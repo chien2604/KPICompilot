@@ -62,11 +62,14 @@ class ChatbotService:
 
         conversation = self._get_or_create_conversation(conversation_id, user.id)
         previous_messages = self.repo.list_messages(conversation.conversation_id, limit=12)
-        previous_user_messages = [item for item in previous_messages if item.role == "user"]
-        summary = self.repo.get_summary(conversation.conversation_id)
-        conversation_summary = summary.summary if summary else ""
+        previous_user_messages = [m for m in previous_messages if m.role == "user"]
+        conversation_summary = ""
+        if len(previous_messages) > 10:
+            summary = self.repo.get_summary(conversation.conversation_id)
+            conversation_summary = summary.summary if summary else ""
 
-        intent = self.detect_intent(message)
+        # Sử dụng LLM Intent Router (có fallback về regex)
+        intent = self.detect_intent(message, previous_messages=previous_messages)
         data = self._structured_data(intent, month, user_level, user.id, effective_dept_id)
         rag_context = GraphRAGService(self.db).build_chat_context(message, user.id, effective_dept_id)
 
@@ -123,7 +126,57 @@ class ChatbotService:
 
     # ── Intent detection ─────────────────────────────────────────────────────
 
-    def detect_intent(self, message: str) -> str:
+    def detect_intent(self, message: str, previous_messages: list | None = None) -> str:
+        # LLM Intent Router
+        system_prompt = """Bạn là bộ định tuyến ý định (Intent Router) cho AI Copilot. 
+Dựa vào lịch sử hội thoại và câu hỏi mới nhất, hãy phân loại ý định của người dùng vào MỘT trong các mã sau.
+CHỈ TRẢ VỀ MÃ Ý ĐỊNH DƯỚI DẠNG JSON, KHÔNG GIẢI THÍCH (ví dụ: {"intent": "MY_KPI"}).
+
+Mã ý định:
+MY_KPI: Xem KPI, điểm số, kết quả của bản thân
+KPI_RISK_USERS: Xem danh sách nhân viên có nguy cơ không đạt KPI, điểm thấp, cán bộ rủi ro
+DEPT_SUMMARY: Xem tổng kết, tình hình chung của một phòng ban
+SLOW_DEPARTMENTS: Xem danh sách phòng ban chậm tiến độ, trễ nhiệm vụ, phòng có nhiệm vụ quá hạn
+EMPLOYEE_PROFILE: Xem hồ sơ, giải thích nguyên nhân/tại sao một nhân viên có điểm thấp
+TASK_STATUS: Xem tình hình, tiến độ, danh sách các nhiệm vụ cụ thể, tại sao nhiệm vụ trễ
+EVIDENCE_EXPLAIN: Xem hoặc giải thích minh chứng của một nhiệm vụ, minh chứng chưa duyệt
+GENERATE_REPORT: Tạo hoặc xem báo cáo giao ban
+GENERAL_HELP: Hỏi đáp chung.
+
+Quy tắc bắt buộc (Rất quan trọng):
+1. Nếu câu hỏi có từ "minh chứng", bắt buộc là EVIDENCE_EXPLAIN.
+2. Nếu hỏi "Tại sao nhiệm vụ...", bắt buộc là TASK_STATUS.
+3. Nếu hỏi "Tại sao nhân viên/anh A/chị B...", bắt buộc là EMPLOYEE_PROFILE.
+4. Nếu người dùng hỏi câu tiếp nối ("Còn phòng Thanh tra thì sao?", "Người đó điểm bao nhiêu?"), hãy tham chiếu chủ đề của câu trước đó để chọn intent tương tự (Ví dụ: câu trước hỏi "phòng nào trễ" (SLOW_DEPARTMENTS) -> "còn phòng X" -> SLOW_DEPARTMENTS).
+"""
+        history_text = ""
+        if previous_messages:
+            # Lấy 4 tin nhắn gần nhất để tạo ngữ cảnh
+            recent = previous_messages[-4:]
+            for m in recent:
+                role_str = "Người dùng" if m.role == "user" else "Hệ thống"
+                history_text += f"{role_str}: {m.content}\n"
+
+        user_prompt = f"Lịch sử:\n{history_text}\nCâu hỏi mới: {message}\n"
+
+        try:
+            # Gọi LLM, bắt buộc trả về JSON
+            raw = self.llm.complete(user_prompt, system_prompt=system_prompt, expect_json=True)
+            import json
+            data = json.loads(raw)
+            intent = data.get("intent", "")
+            
+            valid_intents = ["MY_KPI", "KPI_RISK_USERS", "DEPT_SUMMARY", "SLOW_DEPARTMENTS", 
+                             "EMPLOYEE_PROFILE", "TASK_STATUS", "EVIDENCE_EXPLAIN", 
+                             "GENERATE_REPORT", "GENERAL_HELP"]
+            if intent in valid_intents:
+                return intent
+        except Exception as e:
+            print(f"[WARN] LLM Intent Router failed: {e}. Fallback to keyword matching.")
+            
+        return self._fallback_detect_intent(message)
+
+    def _fallback_detect_intent(self, message: str) -> str:
         lower = message.lower()
 
         # KPI cá nhân
@@ -146,13 +199,13 @@ class ChatbotService:
         if any(k in lower for k in ["vì sao", "tại sao", "điểm thấp", "giải thích", "lý do"]):
             return "EMPLOYEE_PROFILE"
 
+        # Minh chứng — kiểm tra TRƯỚC nhiệm vụ để tránh xung đột
+        if "minh chứng" in lower:
+            return "EVIDENCE_EXPLAIN"
+
         # Nhiệm vụ / tiến độ
         if any(k in lower for k in ["nhiệm vụ", "tiến độ", "công việc", "task"]):
             return "TASK_STATUS"
-
-        # Minh chứng
-        if "minh chứng" in lower:
-            return "EVIDENCE_EXPLAIN"
 
         # Báo cáo
         if "báo cáo" in lower:
@@ -233,22 +286,28 @@ class ChatbotService:
         return {"period": period, "risk_users": [dict(name=r[0], department=r[1], score=r[2], risk=r[3]) for r in rows]}
 
     def _query_slow_departments(self, level: int, dept_id: int | None) -> dict:
-        """Phòng ban chậm tiến độ — Level 1-2 thấy tất, Level 3+ chỉ phòng mình."""
+        """Danh sách phòng có nhiệm vụ quá hạn."""
+        if level == 5:
+            return {"slow_departments": [], "message": "Bạn không có quyền xem thống kê nhiệm vụ của toàn phòng/toàn cơ quan."}
+
         q = (
             self.db.query(Department.name, func.count(Task.id))
             .join(Task, Task.department_id == Department.id)
             .filter(Task.status == "OVERDUE")
             .group_by(Department.name)
         )
-        if level >= 3 and dept_id:
+        if level in [3, 4] and dept_id:
             q = q.filter(Department.id == dept_id)
         rows = q.order_by(func.count(Task.id).desc()).all()
         return {"slow_departments": [{"department": r[0], "overdue_tasks": r[1]} for r in rows]}
 
     def _query_dept_summary(self, level: int, dept_id: int | None, period: str) -> dict:
         """Tổng quan phòng ban: nhiệm vụ + KPI trung bình."""
+        if level == 5:
+            return {"dept_summary": None, "message": "Bạn không có quyền xem tổng quan dữ liệu của toàn phòng."}
+
         dept_filter = []
-        if level >= 3 and dept_id:
+        if level in [3, 4] and dept_id:
             dept_filter = [Task.department_id == dept_id]
 
         task_rows = (
@@ -337,8 +396,7 @@ class ChatbotService:
             f"Người dùng: {user.full_name}\n"
             f"Chức danh: {user.position_title or level_label}\n"
             f"Phòng ban: {dept_name}\n"
-            f"Cấp bậc: Level {user_level} ({level_label})\n"
-            f"Phạm vi quản lý: {'Toàn Sở' if user_level <= 2 else f'Phòng {dept_name}' if user_level <= 4 else 'Cá nhân'}"
+            f"Phạm vi truy cập dữ liệu: {'Toàn Sở' if user_level <= 2 else f'Phòng {dept_name}' if user_level <= 4 else 'Chỉ cá nhân'}"
         )
 
     def _get_or_create_conversation(self, conversation_id: int | None, user_id: int | None) -> Conversation:

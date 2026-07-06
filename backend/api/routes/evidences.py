@@ -5,6 +5,10 @@ from sqlalchemy.orm import Session
 
 from db.database import get_db
 from db.models.evidences import TaskEvidence
+from db.models.tasks import Task, TaskAssignment
+from db.models.users import User
+from core.deps import get_current_user
+from core.permissions import get_user_level
 from services.evidence_service import EvidenceService
 
 router = APIRouter(prefix="/evidences", tags=["evidences"])
@@ -28,13 +32,32 @@ def evidence_to_dict(item: TaskEvidence) -> dict:
 
 
 @router.post("/upload")
-def upload_evidence(task_id: int = Form(...), uploaded_by: int = Form(...), file: UploadFile = File(...), db: Session = Depends(get_db)) -> dict:
-    return evidence_to_dict(EvidenceService(db).upload_and_process(task_id, uploaded_by, file))
+def upload_evidence(task_id: int = Form(...), file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Không tìm thấy nhiệm vụ")
+    
+    level = get_user_level(current_user)
+    # Only allow assignees or leaders of the department to upload
+    is_assignee = current_user.id in [a.user_id for a in task.assignments]
+    if level == 5 and not is_assignee:
+        raise HTTPException(status_code=403, detail="Chỉ người thực hiện mới được tải lên minh chứng")
+    if level in [3, 4] and task.department_id != current_user.department_id and not is_assignee:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền tải lên minh chứng cho phòng khác")
+        
+    return evidence_to_dict(EvidenceService(db).upload_and_process(task_id, current_user.id, file))
 
 
 @router.get("")
-def list_evidences(uploaded_by: int | None = None, task_id: int | None = None, db: Session = Depends(get_db)) -> list[dict]:
+def list_evidences(uploaded_by: int | None = None, task_id: int | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[dict]:
     query = db.query(TaskEvidence)
+    level = get_user_level(current_user)
+    
+    if level == 5:
+        query = query.filter(TaskEvidence.uploaded_by == current_user.id)
+    elif level in [3, 4]:
+        query = query.join(Task).filter(Task.department_id == current_user.department_id)
+        
     if uploaded_by is not None:
         query = query.filter(TaskEvidence.uploaded_by == uploaded_by)
     if task_id is not None:
@@ -42,8 +65,20 @@ def list_evidences(uploaded_by: int | None = None, task_id: int | None = None, d
     return [evidence_to_dict(item) for item in query.order_by(TaskEvidence.created_at.desc()).all()]
 
 
+def check_evidence_permission(evidence: TaskEvidence, current_user: User):
+    level = get_user_level(current_user)
+    if level == 5 and evidence.uploaded_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền xem minh chứng này")
+    if level in [3, 4] and evidence.task.department_id != current_user.department_id:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền xem minh chứng của phòng khác")
+
 @router.post("/{evidence_id}/analyze")
-def analyze_evidence(evidence_id: int, db: Session = Depends(get_db)) -> dict:
+def analyze_evidence(evidence_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
+    item = db.get(TaskEvidence, evidence_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Không tìm thấy minh chứng")
+    check_evidence_permission(item, current_user)
+    
     try:
         item = EvidenceService(db).analyze(evidence_id)
     except ValueError as exc:
@@ -52,10 +87,12 @@ def analyze_evidence(evidence_id: int, db: Session = Depends(get_db)) -> dict:
 
 
 @router.get("/{evidence_id}/analysis")
-def get_analysis(evidence_id: int, db: Session = Depends(get_db)) -> dict:
+def get_analysis(evidence_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     item = db.get(TaskEvidence, evidence_id)
     if not item:
         raise HTTPException(status_code=404, detail="Không tìm thấy minh chứng")
+        
+    check_evidence_permission(item, current_user)
     
     missing_data = {}
     if item.ai_missing_points:
@@ -82,8 +119,9 @@ def get_analysis(evidence_id: int, db: Session = Depends(get_db)) -> dict:
 
 
 @router.get("/{evidence_id}")
-def get_evidence(evidence_id: int, db: Session = Depends(get_db)) -> dict:
+def get_evidence(evidence_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     item = db.get(TaskEvidence, evidence_id)
     if not item:
         raise HTTPException(status_code=404, detail="Không tìm thấy minh chứng")
+    check_evidence_permission(item, current_user)
     return evidence_to_dict(item)

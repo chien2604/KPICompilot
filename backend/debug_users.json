@@ -1,0 +1,17 @@
+{
+  "1": {
+    "pos": "Giám đốc Sở",
+    "template": "BAN_GIAM_DOC",
+    "level": 1
+  },
+  "3": {
+    "pos": "Phó Giám đốc Sở",
+    "template": "BAN_GIAM_DOC",
+    "level": 2
+  },
+  "4": {
+    "pos": "Trưởng phòng",
+    "template": "TRUONG_PHO_PHONG",
+    "level": 3
+  }
+}

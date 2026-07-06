@@ -786,8 +786,17 @@ h3.ant-typography {
   white-space: nowrap;
 }
 
+.copilot-chat-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .copilot-chat-card .ant-card-body {
   padding: 18px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .reports-layout {
@@ -1477,7 +1486,8 @@ h3.ant-typography {
 .chatbox2 {
   display: flex;
   flex-direction: column;
-  height: 72vh;
+  flex: 1;
+  height: 100%;
   min-height: 500px;
 }
 
@@ -2205,7 +2215,9 @@ h3.ant-typography {
   font-family: 'Be Vietnam Pro', sans-serif;
 }
 
-.login-bg { display: none; }
+.login-bg {
+  display: none;
+}
 
 
 .login-card {
@@ -2216,8 +2228,9 @@ h3.ant-typography {
   padding: 48px 44px 36px;
   width: 100%;
   max-width: 440px;
-  box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.5);
+  box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
+
 .login-card::before {
   content: '';
   position: absolute;
@@ -2260,6 +2273,7 @@ h3.ant-typography {
   padding: 14px 16px;
   margin-bottom: 24px;
 }
+
 .login-demo-label {
   display: block;
   font-size: 13px;
@@ -2267,11 +2281,13 @@ h3.ant-typography {
   color: #0284c7;
   margin-bottom: 8px;
 }
+
 .login-demo-hint {
   font-size: 12px;
   color: #64748b;
   margin: 8px 0 0;
 }
+
 .login-demo-hint code {
   background: #e2e8f0;
   color: #0f172a;
@@ -2288,6 +2304,7 @@ h3.ant-typography {
   color: #cbd5e1;
   font-size: 12px;
 }
+
 .login-divider::before,
 .login-divider::after {
   content: '';
@@ -2295,6 +2312,7 @@ h3.ant-typography {
   height: 1px;
   background: #e2e8f0;
 }
+
 .login-divider span {
   color: #94a3b8;
   white-space: nowrap;
@@ -2316,7 +2334,7 @@ h3.ant-typography {
   box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.15) !important;
 }
 
-.login-card .ant-input-affix-wrapper > input.ant-input {
+.login-card .ant-input-affix-wrapper>input.ant-input {
   color: #0f172a !important;
   background: transparent !important;
   border: none !important;
@@ -2324,7 +2342,7 @@ h3.ant-typography {
   padding: 0 !important;
 }
 
-.login-card .ant-form-item-label > label {
+.login-card .ant-form-item-label>label {
   color: #475569 !important;
   font-weight: 500;
   font-size: 13px;
@@ -2376,12 +2394,14 @@ h3.ant-typography {
   border: 1px solid #e2e8f0 !important;
   border-radius: 6px !important;
   padding: 4px !important;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
 }
+
 .login-demo-dropdown .ant-select-item {
   color: #334155 !important;
   border-radius: 4px;
 }
+
 .login-demo-dropdown .ant-select-item-option-active,
 .login-demo-dropdown .ant-select-item-option-selected {
   background: #f0f9ff !important;
@@ -2418,7 +2438,7 @@ h3.ant-typography {
   font-weight: 600;
   border: 1px solid currentColor;
   background: #ffffff;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 /* Task table — row selected */

@@ -6,6 +6,8 @@ from db.database import get_db
 from db.models.evidences import TaskEvidence
 from db.models.tasks import Task, TaskAssignment
 from db.models.users import User
+from core.deps import get_current_user
+from core.permissions import get_user_level, can_assign_to
 from schemas.tasks import TaskCreate, TaskStatusUpdate, TaskUpdate
 from services.task_service import TaskService
 
@@ -49,14 +51,30 @@ def list_tasks(
     creator_id: int | None = None,
     month: str | None = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> list[dict]:
+    level = get_user_level(current_user)
+    
     query = db.query(Task)
     if status:
         query = query.filter(Task.status == status)
-    if department_id:
-        query = query.filter(Task.department_id == department_id)
-    if assigned_user_id:
-        query = query.join(TaskAssignment).filter(TaskAssignment.user_id == assigned_user_id)
+        
+    # Phân quyền xem
+    if level == 5:
+        # Chuyên viên chỉ xem task của mình
+        query = query.join(TaskAssignment).filter(TaskAssignment.user_id == current_user.id)
+    else:
+        # Lãnh đạo
+        if assigned_user_id:
+            query = query.join(TaskAssignment).filter(TaskAssignment.user_id == assigned_user_id)
+        if level in [3, 4]:
+            # Trưởng/Phó phòng xem task phòng mình
+            query = query.filter(Task.department_id == current_user.department_id)
+        else:
+            # Giám đốc xem tất cả, có thể filter theo department_id
+            if department_id:
+                query = query.filter(Task.department_id == department_id)
+                
     if creator_id:
         query = query.filter(Task.creator_id == creator_id)
     if month:
@@ -66,48 +84,102 @@ def list_tasks(
 
 
 @router.get("/stats")
-def task_stats(db: Session = Depends(get_db)) -> dict:
-    counts = dict(db.query(Task.status, func.count(Task.id)).group_by(Task.status).all())
+def task_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
+    level = get_user_level(current_user)
+    query = db.query(Task.status, func.count(Task.id))
+    
+    if level == 5:
+        query = query.join(TaskAssignment).filter(TaskAssignment.user_id == current_user.id)
+    elif level in [3, 4]:
+        query = query.filter(Task.department_id == current_user.department_id)
+        
+    counts = dict(query.group_by(Task.status).all())
     total = sum(counts.values())
     return {"total": total, "by_status": counts, "completed": counts.get("COMPLETED", 0), "overdue": counts.get("OVERDUE", 0)}
 
 
 @router.post("")
-def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> dict:
+def create_task(payload: TaskCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
+    level = get_user_level(current_user)
+    if level == 5:
+        raise HTTPException(status_code=403, detail="Chuyên viên không có quyền tạo nhiệm vụ")
+    
+    # Verify can_assign_to for all assignees
+    for uid in payload.assigned_user_ids:
+        target = db.get(User, uid)
+        if not target or not can_assign_to(current_user, target):
+            raise HTTPException(status_code=403, detail=f"Không có quyền giao việc cho user {uid}")
+            
+    payload.creator_id = current_user.id
+    if level in [3, 4] and not payload.department_id:
+        payload.department_id = current_user.department_id
+        
     return task_to_dict(TaskService(db).create(payload))
 
 
 @router.get("/{task_id}")
-def get_task(task_id: int, db: Session = Depends(get_db)) -> dict:
+def get_task(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     task = db.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Không tìm thấy nhiệm vụ")
+        
+    level = get_user_level(current_user)
+    if level == 5:
+        if current_user.id not in [a.user_id for a in task.assignments]:
+            raise HTTPException(status_code=403, detail="Bạn không có quyền xem nhiệm vụ này")
+    elif level in [3, 4]:
+        if task.department_id != current_user.department_id:
+            raise HTTPException(status_code=403, detail="Bạn không có quyền xem nhiệm vụ phòng khác")
+            
     return task_to_dict(task)
 
 
 @router.patch("/{task_id}")
-def update_task(task_id: int, payload: TaskUpdate, db: Session = Depends(get_db)) -> dict:
+def update_task(task_id: int, payload: TaskUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     task = db.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Không tìm thấy nhiệm vụ")
+        
+    level = get_user_level(current_user)
+    if level == 5:
+        raise HTTPException(status_code=403, detail="Chuyên viên không có quyền sửa nhiệm vụ")
+    if level in [3, 4] and task.department_id != current_user.department_id:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền sửa nhiệm vụ phòng khác")
+        
     return task_to_dict(TaskService(db).update(task, payload))
 
 
 @router.delete("/{task_id}")
-def delete_task(task_id: int, db: Session = Depends(get_db)) -> dict:
+def delete_task(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     task = db.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Không tìm thấy nhiệm vụ")
+        
+    level = get_user_level(current_user)
+    if level == 5:
+        raise HTTPException(status_code=403, detail="Chuyên viên không có quyền xóa nhiệm vụ")
+    if level in [3, 4] and task.department_id != current_user.department_id:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền xóa nhiệm vụ phòng khác")
+        
     db.delete(task)
     db.commit()
     return {"ok": True}
 
 
 @router.patch("/{task_id}/status")
-def update_status(task_id: int, payload: TaskStatusUpdate, db: Session = Depends(get_db)) -> dict:
+def update_status(task_id: int, payload: TaskStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     task = db.get(Task, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Không tìm thấy nhiệm vụ")
+        
+    level = get_user_level(current_user)
+    is_assignee = current_user.id in [a.user_id for a in task.assignments]
+    
+    if level == 5 and not is_assignee:
+        raise HTTPException(status_code=403, detail="Chỉ người thực hiện mới được cập nhật tiến độ")
+    if level in [3, 4] and task.department_id != current_user.department_id and not is_assignee:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền cập nhật tiến độ nhiệm vụ phòng khác")
+
     task.status = payload.status
     if payload.progress_percent is not None:
         for assignment in task.assignments:
@@ -123,8 +195,13 @@ def score_assignment(
     user_id: int,
     leader_score: float = Query(..., ge=0, le=100),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     """Cấp trên chấm điểm cho một người được giao nhiệm vụ."""
+    target_user = db.get(User, user_id)
+    if not target_user or not can_assign_to(current_user, target_user):
+        raise HTTPException(status_code=403, detail="Bạn không có quyền chấm điểm người này")
+
     assignment = db.query(TaskAssignment).filter(
         TaskAssignment.task_id == task_id,
         TaskAssignment.user_id == user_id,
