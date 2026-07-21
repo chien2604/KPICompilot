@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './layouts/AppLayout.jsx';
 import LoginPage from './pages/LoginPage.jsx';
@@ -12,6 +12,15 @@ import EvidenceAnalysisPage from './pages/EvidenceAnalysisPage.jsx';
 import KpiEvaluationPage from './pages/KpiEvaluationPage.jsx';
 import CopilotChatPage from './pages/CopilotChatPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
+import AdminPage from './pages/AdminPage.jsx';
+
+// Route chỉ dành cho admin
+function AdminRoute({ children }) {
+  const { isAdmin, loading } = useAuth();
+  if (loading) return null;
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  return children;
+}
 
 export default function App() {
   return (
@@ -39,6 +48,14 @@ export default function App() {
             <Route path="/kpi/:userId" element={<KpiEvaluationPage />} />
             <Route path="/copilot" element={<CopilotChatPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminPage />
+                </AdminRoute>
+              }
+            />
           </Route>
         </Routes>
       </AuthProvider>

@@ -36,3 +36,13 @@ def get_current_user(
             detail="Tài khoản không tồn tại hoặc đã bị khoá.",
         )
     return user
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Dependency yêu cầu người dùng phải có role admin."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ Admin mới có quyền thực hiện thao tác này.",
+        )
+    return current_user

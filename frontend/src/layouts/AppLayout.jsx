@@ -9,13 +9,16 @@ import {
   ProfileOutlined,
   ProjectOutlined,
   RobotOutlined,
+  SettingOutlined,
   TeamOutlined,
   UserOutlined,
+  LockOutlined,
 } from '@ant-design/icons';
-import { Avatar, Button, Layout, Menu, Tag, Tooltip } from 'antd';
+import { Avatar, Button, Layout, Menu, Tag, Tooltip, Modal, Input, Form, message } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { authApi } from '../api/authApi';
 import FloatingCopilot from '../components/FloatingCopilot';
 
 const { Header, Sider, Content } = Layout;
@@ -23,6 +26,7 @@ const { Header, Sider, Content } = Layout;
 const WEEKDAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
 
 const LEVEL_TAG = {
+  0: { label: 'Admin', color: 'red' },
   1: { label: 'Giám đốc', color: 'purple' },
   2: { label: 'Phó GĐ', color: 'blue' },
   3: { label: 'Trưởng phòng', color: 'cyan' },
@@ -44,8 +48,11 @@ function KpiLogo() {
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdForm] = Form.useForm();
 
   const now = new Date();
   const userId = user?.user_id;
@@ -56,15 +63,35 @@ export default function AppLayout() {
     navigate('/login', { replace: true });
   };
 
+  const handleChangePassword = async (values) => {
+    setPwdLoading(true);
+    try {
+      await authApi.changePassword(values.oldPassword, values.newPassword);
+      message.success('Đổi mật khẩu thành công!');
+      setIsChangePasswordOpen(false);
+      pwdForm.resetFields();
+    } catch (error) {
+      message.error(error.response?.data?.detail || 'Không thể đổi mật khẩu, vui lòng kiểm tra lại!');
+    } finally {
+      setPwdLoading(false);
+    }
+  };
+
   const menuItems = [
     { key: '/dashboard', icon: <BarChartOutlined />, label: 'Tổng quan' },
-    ...(user?.level <= 2 ? [{ key: '/heatmap', icon: <HeatMapOutlined />, label: 'Heatmap' }] : []),
+    ...((user?.level <= 2 || isAdmin) ? [{ key: '/heatmap', icon: <HeatMapOutlined />, label: 'Heatmap' }] : []),
     { key: `/employees/${userId}`, icon: <TeamOutlined />, label: 'Hồ sơ' },
     { key: '/tasks', icon: <ProjectOutlined />, label: 'Công việc' },
     { key: '/evidences', icon: <FileSearchOutlined />, label: 'Minh chứng' },
     { key: `/kpi/${userId}`, icon: <FileDoneOutlined />, label: 'AI đánh giá' },
     { key: '/copilot', icon: <RobotOutlined />, label: 'AI Copilot' },
     { key: '/reports', icon: <ProfileOutlined />, label: 'Báo cáo' },
+    ...(isAdmin ? [{
+      key: '/admin',
+      icon: <SettingOutlined />,
+      label: 'Quản trị',
+      style: { color: '#ff4d4f', fontWeight: 600 },
+    }] : []),
   ];
 
   return (
@@ -98,6 +125,15 @@ export default function AppLayout() {
                 {levelInfo.label}
               </Tag>
             </div>
+            <Tooltip title="Đổi mật khẩu">
+              <Button
+                id="change-pwd-btn"
+                type="text"
+                icon={<LockOutlined />}
+                onClick={() => setIsChangePasswordOpen(true)}
+                style={{ color: 'rgba(255,255,255,0.75)' }}
+              />
+            </Tooltip>
             <Tooltip title="Đăng xuất">
               <Button
                 id="logout-btn"
@@ -111,6 +147,70 @@ export default function AppLayout() {
           </div>
         </div>
       </Header>
+
+      <Modal
+        title="Đổi mật khẩu"
+        open={isChangePasswordOpen}
+        onCancel={() => {
+          setIsChangePasswordOpen(false);
+          pwdForm.resetFields();
+        }}
+        footer={null}
+        destroyOnClose
+      >
+        <Form
+          form={pwdForm}
+          layout="vertical"
+          onFinish={handleChangePassword}
+        >
+          <Form.Item
+            name="oldPassword"
+            label="Mật khẩu cũ"
+            rules={[{ required: true, message: 'Vui lòng nhập mật khẩu cũ' }]}
+          >
+            <Input.Password placeholder="Nhập mật khẩu cũ" />
+          </Form.Item>
+          <Form.Item
+            name="newPassword"
+            label="Mật khẩu mới"
+            rules={[
+              { required: true, message: 'Vui lòng nhập mật khẩu mới' },
+              { min: 6, message: 'Mật khẩu mới phải từ 6 ký tự trở lên' }
+            ]}
+          >
+            <Input.Password placeholder="Nhập mật khẩu mới" />
+          </Form.Item>
+          <Form.Item
+            name="confirmPassword"
+            label="Xác nhận mật khẩu mới"
+            dependencies={['newPassword']}
+            rules={[
+              { required: true, message: 'Vui lòng xác nhận mật khẩu mới' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error('Mật khẩu xác nhận không khớp!'));
+                },
+              }),
+            ]}
+          >
+            <Input.Password placeholder="Xác nhận mật khẩu mới" />
+          </Form.Item>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
+            <Button onClick={() => {
+              setIsChangePasswordOpen(false);
+              pwdForm.resetFields();
+            }}>
+              Hủy
+            </Button>
+            <Button type="primary" htmlType="submit" loading={pwdLoading}>
+              Cập nhật
+            </Button>
+          </div>
+        </Form>
+      </Modal>
       <Layout>
         <Sider
           width={248}

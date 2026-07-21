@@ -118,7 +118,7 @@ function OrgNodeCard({ node, isRoot, nodeRef, deptUsers, scoreMap }) {
       <div
         ref={nodeRef}
         className={`org-card ${isRoot ? 'org-card--root' : ''}`}
-        style={{ borderColor: color }}
+        style={{ borderColor: color, backgroundColor: score !== null ? color + '1A' : '#f8fafc' }}
         data-node-id={node.id}
       >
         <div className="org-card__name">{node.name}</div>

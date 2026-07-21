@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Alert, Button, Form, Input, Select, Spin } from 'antd';
-import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
+import { Alert, Button, Form, Input, Select, Spin, Modal, message } from 'antd';
+import { LockOutlined, MailOutlined, UserOutlined, EditOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
+import { authApi } from '../api/authApi';
 
 const DEMO_USERS = [
   { label: 'Nguyễn Minh An — Giám đốc Sở', email: 'user1@demo.local' },
@@ -27,7 +28,10 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [form] = Form.useForm();
+  const [pwdForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState(null);
 
   const from = location.state?.from?.pathname || '/dashboard';
@@ -47,6 +51,20 @@ export default function LoginPage() {
 
   const handleDemoSelect = (email) => {
     form.setFieldsValue({ email, password: '123456' });
+  };
+
+  const handlePublicChangePassword = async (values) => {
+    setPwdLoading(true);
+    try {
+      await authApi.changePasswordPublic(values.email, values.oldPassword, values.newPassword);
+      message.success('Đổi mật khẩu thành công! Hãy đăng nhập lại bằng mật khẩu mới.');
+      setIsModalOpen(false);
+      pwdForm.resetFields();
+    } catch (err) {
+      message.error(err.response?.data?.detail || 'Đổi mật khẩu thất bại. Vui lòng kiểm tra lại thông tin.');
+    } finally {
+      setPwdLoading(false);
+    }
   };
 
   return (
@@ -72,26 +90,6 @@ export default function LoginPage() {
 
         <h1 className="login-title">AI KPI Copilot</h1>
         <p className="login-subtitle">Hệ thống đánh giá KPI thông minh dành cho cơ quan Nhà nước</p>
-
-        {/* Demo quick select */}
-        <div className="login-demo-section">
-          <label className="login-demo-label">
-            <UserOutlined /> Chọn nhanh tài khoản demo
-          </label>
-          <Select
-            id="demo-user-select"
-            placeholder="Chọn người dùng demo..."
-            style={{ width: '100%' }}
-            onChange={handleDemoSelect}
-            options={DEMO_USERS.map((u) => ({ value: u.email, label: u.label }))}
-            popupMatchSelectWidth={false}
-            popupClassName="login-demo-dropdown"
-            allowClear
-          />
-        </div>
-
-        {/* Divider */}
-        <div className="login-divider"><span>Hoặc đăng nhập thủ công</span></div>
 
         {/* Form */}
         <Form
@@ -136,7 +134,7 @@ export default function LoginPage() {
             </Form.Item>
           )}
 
-          <Form.Item style={{ marginBottom: 0 }}>
+          <Form.Item style={{ marginBottom: 12 }}>
             <Button
               id="login-submit"
               type="primary"
@@ -149,20 +147,96 @@ export default function LoginPage() {
               Đăng nhập
             </Button>
           </Form.Item>
-        </Form>
 
-        {/* Role legend */}
-        <div className="login-role-legend">
-          <p className="login-role-legend__title">Phân cấp quyền hạn</p>
-          <div className="login-role-legend__grid">
-            {Object.entries(ROLE_BADGE).map(([lvl, { label, color }]) => (
-              <span key={lvl} className="login-role-badge" style={{ background: color + '18', color }}>
-                {label}
-              </span>
-            ))}
+          <div style={{ textAlign: 'center' }}>
+            <Button 
+              type="link" 
+              onClick={() => setIsModalOpen(true)}
+              style={{ color: '#38bdf8', fontSize: 13, padding: 0 }}
+            >
+              Yêu cầu đổi mật khẩu?
+            </Button>
           </div>
-        </div>
+        </Form>
       </div>
+
+      <Modal
+        title={<span style={{ color: '#0f172a', fontWeight: 700 }}>Đổi mật khẩu tài khoản</span>}
+        open={isModalOpen}
+        onCancel={() => {
+          setIsModalOpen(false);
+          pwdForm.resetFields();
+        }}
+        footer={null}
+        destroyOnClose
+      >
+        <Form
+          form={pwdForm}
+          layout="vertical"
+          onFinish={handlePublicChangePassword}
+        >
+          <Form.Item
+            name="email"
+            label="Email công vụ"
+            rules={[
+              { required: true, message: 'Vui lòng nhập email' },
+              { type: 'email', message: 'Email không hợp lệ' }
+            ]}
+          >
+            <Input placeholder="Ví dụ: giangnh@dantoc.daklak.gov.vn" />
+          </Form.Item>
+          
+          <Form.Item
+            name="oldPassword"
+            label="Mật khẩu hiện tại"
+            rules={[{ required: true, message: 'Vui lòng nhập mật khẩu hiện tại' }]}
+          >
+            <Input.Password placeholder="Mật khẩu hiện tại của bạn" />
+          </Form.Item>
+          
+          <Form.Item
+            name="newPassword"
+            label="Mật khẩu mới"
+            rules={[
+              { required: true, message: 'Vui lòng nhập mật khẩu mới' },
+              { min: 6, message: 'Mật khẩu mới phải từ 6 ký tự trở lên' }
+            ]}
+          >
+            <Input.Password placeholder="Mật khẩu mới muốn thay đổi" />
+          </Form.Item>
+          
+          <Form.Item
+            name="confirmPassword"
+            label="Xác nhận mật khẩu mới"
+            dependencies={['newPassword']}
+            rules={[
+              { required: true, message: 'Vui lòng xác nhận mật khẩu mới' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error('Mật khẩu xác nhận không khớp!'));
+                },
+              }),
+            ]}
+          >
+            <Input.Password placeholder="Nhập lại mật khẩu mới" />
+          </Form.Item>
+          
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
+            <Button onClick={() => {
+              setIsModalOpen(false);
+              pwdForm.resetFields();
+            }}>
+              Hủy
+            </Button>
+            <Button type="primary" htmlType="submit" loading={pwdLoading}>
+              Đổi mật khẩu
+            </Button>
+          </div>
+        </Form>
+      </Modal>
     </div>
   );
 }

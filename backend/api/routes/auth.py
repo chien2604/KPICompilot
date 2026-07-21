@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from core.deps import get_current_user
-from core.permissions import can_assign_to, get_assignable_users, get_user_level
+from core.permissions import can_assign_to, get_assignable_users, get_user_level, is_admin
 from core.security import create_access_token, verify_password
 from db.database import get_db
 from db.models.users import User
@@ -25,6 +25,7 @@ def _user_to_token_response(user: User, token: str) -> TokenResponse:
         department_name=user.department.name if user.department else None,
         avatar_url=user.avatar_url,
         level=get_user_level(user),
+        is_admin=is_admin(user),
     )
 
 
@@ -71,3 +72,64 @@ def assignable_users(
         }
         for u in allowed
     ]
+
+
+from schemas.auth import ChangePasswordRequest
+from core.security import hash_password
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Thay đổi mật khẩu của người dùng hiện tại."""
+    if not current_user.hashed_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tài khoản chưa được thiết lập mật khẩu."
+        )
+    if not verify_password(payload.old_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu cũ không chính xác."
+        )
+    if len(payload.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu mới phải từ 6 ký tự trở lên."
+        )
+    current_user.hashed_password = hash_password(payload.new_password)
+    db.commit()
+    return {"status": "success", "message": "Đổi mật khẩu thành công!"}
+
+
+from schemas.auth import ResetPasswordRequest
+
+@router.post("/change-password-public")
+def change_password_public(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Thay đổi mật khẩu ở ngoài màn hình login dựa vào Email + Mật khẩu cũ."""
+    user = db.query(User).filter(User.email == payload.email, User.is_active.is_(True)).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tài khoản không tồn tại hoặc đã bị khóa."
+        )
+    if not user.hashed_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tài khoản chưa được thiết lập mật khẩu."
+        )
+    if not verify_password(payload.old_password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu cũ không chính xác."
+        )
+    if len(payload.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu mới phải từ 6 ký tự trở lên."
+        )
+    user.hashed_password = hash_password(payload.new_password)
+    db.commit()
+    return {"status": "success", "message": "Đổi mật khẩu thành công!"}

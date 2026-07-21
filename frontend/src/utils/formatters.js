@@ -12,7 +12,7 @@ export const statusLabel = {
 export const roleLabel = {
   LEADER: 'Lãnh đạo Sở',
   MANAGER: 'Lãnh đạo phòng',
-  STAFF: 'Cán bộ chuyên môn',
+  STAFF: 'Chuyên viên',
 };
 
 export const kpiTemplateLabel = {
@@ -28,9 +28,9 @@ export const riskLevelLabel = {
 };
 
 export const riskColor = (score) => {
-  if (score >= 85) return '#0284c7'; // Deep Sky Blue (High)
-  if (score >= 70) return '#0ea5e9'; // Mid Sky Blue (Medium)
-  return '#38bdf8'; // Light Cyan (Low)
+  if (score >= 85) return '#22c55e'; // Green (High)
+  if (score >= 70) return '#f59e0b'; // Amber (Medium)
+  return '#ef4444'; // Red (Low)
 };
 
 export const formatDate = (value) => (value ? new Date(value).toLocaleDateString('vi-VN') : '-');

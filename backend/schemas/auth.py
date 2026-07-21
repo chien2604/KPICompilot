@@ -18,4 +18,16 @@ class TokenResponse(BaseModel):
     department_id: int | None
     department_name: str | None
     avatar_url: str | None
-    level: int  # cấp bậc phân quyền (1=GĐ, 5=Chuyên viên)
+    level: int  # cấp bậc phân quyền (0=Admin, 1=GĐ, 5=Chuyên viên)
+    is_admin: bool = False  # True nếu role == "admin"
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    old_password: str
+    new_password: str

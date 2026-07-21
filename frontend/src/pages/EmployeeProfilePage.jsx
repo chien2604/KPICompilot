@@ -151,14 +151,9 @@ export default function EmployeeProfilePage() {
             <Card title={<span style={{ fontSize: 16, fontWeight: 700 }}>Thông tin cán bộ</span>}>
               <div className="profile-info-list">
                 <InfoRow icon={<MailOutlined />} label="Email" value={user.email} />
-                <InfoRow icon={<BankOutlined />} label="Đơn vị" value={user.department} />
+                <InfoRow icon={<BankOutlined />} label="Phòng ban" value={user.department} />
                 <InfoRow icon={<IdcardOutlined />} label="Chức vụ" value={user.position_title} />
-                <InfoRow icon={<UserOutlined />} label="Vai trò" value={roleLabel[user.role] || user.role} />
-                <InfoRow
-                  icon={<SafetyCertificateOutlined />}
-                  label="Mẫu KPI"
-                  value={kpiTemplateLabel[user.kpi_role_template] || user.kpi_role_template}
-                />
+                <InfoRow icon={<UserOutlined />} label="Cấp" value={roleLabel[user.role] || user.role} />
               </div>
             </Card>
           </Space>

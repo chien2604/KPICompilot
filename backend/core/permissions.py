@@ -1,6 +1,7 @@
 """Logic phân quyền: xác định ai được giao việc / chấm điểm cho ai.
 
 Phân cấp:
+  Admin (level 0)          → toàn quyền, bypass mọi kiểm tra
   Giám đốc (level 1)       → giao/chấm: Phó GĐ, Trưởng phòng
   Phó giám đốc (level 2)  → giao/chấm: Trưởng phòng, Phó trưởng phòng
   Trưởng phòng (level 3)  → giao/chấm: Phó phòng, Chuyên viên (trong phòng mình)
@@ -17,16 +18,29 @@ _TEMPLATE_LEVEL: dict[str, int] = {
 }
 
 _POSITION_LEVEL: dict[str, int] = {
-    "Giám đốc Sở": 1,
-    "Phó Giám đốc Sở": 2,
+    "Giám đốc": 1,
+    "Phó Giám đốc": 2,
+    "Chánh Văn phòng": 3,
     "Trưởng phòng": 3,
-    "Phó trưởng phòng": 4,
+    "Trưởng phòng Chính sách Dân tộc": 3,
+    "Phó Chánh Văn phòng": 4,
+    "Phó Trưởng phòng": 4,
     "Chuyên viên": 5,
+    "Kế toán": 5,
+    "Văn thư": 5,
+    "Nhân viên lái xe": 5,
 }
 
 
+def is_admin(user: User) -> bool:
+    """Kiểm tra user có role admin không (toàn quyền hệ thống)."""
+    return user.role == "admin"
+
+
 def get_user_level(user: User) -> int:
-    """Trả về cấp bậc của user (1 = cao nhất)."""
+    """Trả về cấp bậc của user (0 = admin toàn quyền, 1 = GĐ cao nhất, 5 = thấp nhất)."""
+    if is_admin(user):
+        return 0
     if user.position_title and user.position_title in _POSITION_LEVEL:
         return _POSITION_LEVEL[user.position_title]
     return _TEMPLATE_LEVEL.get(user.kpi_role_template, 5)
@@ -34,12 +48,16 @@ def get_user_level(user: User) -> int:
 
 def can_assign_to(assigner: User, target: User) -> bool:
     """Kiểm tra assigner có quyền giao việc cho target không."""
-    a_lvl = get_user_level(assigner)
-    t_lvl = get_user_level(target)
-
     # Không thể giao cho chính mình
     if assigner.id == target.id:
         return False
+
+    # Admin có thể giao cho tất cả mọi người
+    if is_admin(assigner):
+        return True
+
+    a_lvl = get_user_level(assigner)
+    t_lvl = get_user_level(target)
 
     # Giám đốc (1): giao cho Phó GĐ (2) và Trưởng phòng (3)
     if a_lvl == 1:

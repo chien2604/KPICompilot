@@ -7,7 +7,7 @@ from db.models.evidences import TaskEvidence
 from db.models.tasks import Task, TaskAssignment
 from db.models.users import User
 from core.deps import get_current_user
-from core.permissions import get_user_level, can_assign_to
+from core.permissions import get_user_level, can_assign_to, is_admin
 from schemas.tasks import TaskCreate, TaskStatusUpdate, TaskUpdate
 from services.task_service import TaskService
 
@@ -60,7 +60,13 @@ def list_tasks(
         query = query.filter(Task.status == status)
         
     # Phân quyền xem
-    if level == 5:
+    if is_admin(current_user):
+        # Admin xem tất cả, có thể filter theo bất kỳ tiêu chí nào
+        if assigned_user_id:
+            query = query.join(TaskAssignment).filter(TaskAssignment.user_id == assigned_user_id)
+        if department_id:
+            query = query.filter(Task.department_id == department_id)
+    elif level == 5:
         # Chuyên viên chỉ xem task của mình
         query = query.join(TaskAssignment).filter(TaskAssignment.user_id == current_user.id)
     else:
@@ -88,10 +94,11 @@ def task_stats(db: Session = Depends(get_db), current_user: User = Depends(get_c
     level = get_user_level(current_user)
     query = db.query(Task.status, func.count(Task.id))
     
-    if level == 5:
-        query = query.join(TaskAssignment).filter(TaskAssignment.user_id == current_user.id)
-    elif level in [3, 4]:
-        query = query.filter(Task.department_id == current_user.department_id)
+    if not is_admin(current_user):
+        if level == 5:
+            query = query.join(TaskAssignment).filter(TaskAssignment.user_id == current_user.id)
+        elif level in [3, 4]:
+            query = query.filter(Task.department_id == current_user.department_id)
         
     counts = dict(query.group_by(Task.status).all())
     total = sum(counts.values())
@@ -101,7 +108,7 @@ def task_stats(db: Session = Depends(get_db), current_user: User = Depends(get_c
 @router.post("")
 def create_task(payload: TaskCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict:
     level = get_user_level(current_user)
-    if level == 5:
+    if not is_admin(current_user) and level == 5:
         raise HTTPException(status_code=403, detail="Chuyên viên không có quyền tạo nhiệm vụ")
     
     # Verify can_assign_to for all assignees
@@ -111,7 +118,7 @@ def create_task(payload: TaskCreate, db: Session = Depends(get_db), current_user
             raise HTTPException(status_code=403, detail=f"Không có quyền giao việc cho user {uid}")
             
     payload.creator_id = current_user.id
-    if level in [3, 4] and not payload.department_id:
+    if not is_admin(current_user) and level in [3, 4] and not payload.department_id:
         payload.department_id = current_user.department_id
         
     return task_to_dict(TaskService(db).create(payload))
@@ -124,12 +131,13 @@ def get_task(task_id: int, db: Session = Depends(get_db), current_user: User = D
         raise HTTPException(status_code=404, detail="Không tìm thấy nhiệm vụ")
         
     level = get_user_level(current_user)
-    if level == 5:
-        if current_user.id not in [a.user_id for a in task.assignments]:
-            raise HTTPException(status_code=403, detail="Bạn không có quyền xem nhiệm vụ này")
-    elif level in [3, 4]:
-        if task.department_id != current_user.department_id:
-            raise HTTPException(status_code=403, detail="Bạn không có quyền xem nhiệm vụ phòng khác")
+    if not is_admin(current_user):
+        if level == 5:
+            if current_user.id not in [a.user_id for a in task.assignments]:
+                raise HTTPException(status_code=403, detail="Bạn không có quyền xem nhiệm vụ này")
+        elif level in [3, 4]:
+            if task.department_id != current_user.department_id:
+                raise HTTPException(status_code=403, detail="Bạn không có quyền xem nhiệm vụ phòng khác")
             
     return task_to_dict(task)
 
@@ -141,10 +149,11 @@ def update_task(task_id: int, payload: TaskUpdate, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Không tìm thấy nhiệm vụ")
         
     level = get_user_level(current_user)
-    if level == 5:
-        raise HTTPException(status_code=403, detail="Chuyên viên không có quyền sửa nhiệm vụ")
-    if level in [3, 4] and task.department_id != current_user.department_id:
-        raise HTTPException(status_code=403, detail="Bạn không có quyền sửa nhiệm vụ phòng khác")
+    if not is_admin(current_user):
+        if level == 5:
+            raise HTTPException(status_code=403, detail="Chuyên viên không có quyền sửa nhiệm vụ")
+        if level in [3, 4] and task.department_id != current_user.department_id:
+            raise HTTPException(status_code=403, detail="Bạn không có quyền sửa nhiệm vụ phòng khác")
         
     return task_to_dict(TaskService(db).update(task, payload))
 
@@ -156,10 +165,11 @@ def delete_task(task_id: int, db: Session = Depends(get_db), current_user: User 
         raise HTTPException(status_code=404, detail="Không tìm thấy nhiệm vụ")
         
     level = get_user_level(current_user)
-    if level == 5:
-        raise HTTPException(status_code=403, detail="Chuyên viên không có quyền xóa nhiệm vụ")
-    if level in [3, 4] and task.department_id != current_user.department_id:
-        raise HTTPException(status_code=403, detail="Bạn không có quyền xóa nhiệm vụ phòng khác")
+    if not is_admin(current_user):
+        if level == 5:
+            raise HTTPException(status_code=403, detail="Chuyên viên không có quyền xóa nhiệm vụ")
+        if level in [3, 4] and task.department_id != current_user.department_id:
+            raise HTTPException(status_code=403, detail="Bạn không có quyền xóa nhiệm vụ phòng khác")
         
     db.delete(task)
     db.commit()
@@ -174,11 +184,12 @@ def update_status(task_id: int, payload: TaskStatusUpdate, db: Session = Depends
         
     level = get_user_level(current_user)
     is_assignee = current_user.id in [a.user_id for a in task.assignments]
-    
-    if level == 5 and not is_assignee:
-        raise HTTPException(status_code=403, detail="Chỉ người thực hiện mới được cập nhật tiến độ")
-    if level in [3, 4] and task.department_id != current_user.department_id and not is_assignee:
-        raise HTTPException(status_code=403, detail="Bạn không có quyền cập nhật tiến độ nhiệm vụ phòng khác")
+
+    if not is_admin(current_user):
+        if level == 5 and not is_assignee:
+            raise HTTPException(status_code=403, detail="Chỉ người thực hiện mới được cập nhật tiến độ")
+        if level in [3, 4] and task.department_id != current_user.department_id and not is_assignee:
+            raise HTTPException(status_code=403, detail="Bạn không có quyền cập nhật tiến độ nhiệm vụ phòng khác")
 
     task.status = payload.status
     if payload.progress_percent is not None:

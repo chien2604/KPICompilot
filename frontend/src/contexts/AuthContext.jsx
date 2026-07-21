@@ -58,7 +58,14 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, login, logout, isAuthenticated: !!user }),
+    () => ({
+      user,
+      loading,
+      login,
+      logout,
+      isAuthenticated: !!user,
+      isAdmin: user?.is_admin === true,
+    }),
     [user, loading, login, logout],
   );
 

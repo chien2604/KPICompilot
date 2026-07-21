@@ -243,8 +243,16 @@ Quy tắc bắt buộc (Rất quan trọng):
         if intent == "TASK_STATUS":
             return self._query_task_status(user_level, user_id, department_id)
 
-        # Mặc định: tổng quan nhiệm vụ (có filter theo role)
-        return self._query_task_status(user_level, user_id, department_id)
+        # Thêm đếm số nhân viên, số phòng ban và danh sách tên phòng ban thực tế vào data trả về
+        users_count = self.db.query(func.count(User.id)).filter(User.is_active.is_(True)).scalar()
+        depts = self.db.query(Department.name).all()
+        dept_names = [d[0] for d in depts]
+
+        data_res = self._query_task_status(user_level, user_id, department_id)
+        data_res["total_employees"] = users_count
+        data_res["total_departments"] = len(dept_names)
+        data_res["department_list"] = dept_names
+        return data_res
 
     def _query_my_kpi(self, user_id: int, period: str) -> dict:
         """KPI cá nhân: điểm, phân loại, breakdown chi tiết."""

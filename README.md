@@ -12,8 +12,7 @@ pip install -r requirements.txt
 cp .env.example .env
 docker compose up -d postgres
 python -m db.init_db
-python scripts/seed_from_excel.py
-python scripts/seed_demo_data.py
+python -m scripts.seed_from_excel_users
 python main.py
 ```
 
