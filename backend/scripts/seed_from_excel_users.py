@@ -3,6 +3,9 @@ from pathlib import Path
 import sys
 from datetime import datetime, timedelta
 import random
+import unicodedata
+
+from sqlalchemy import text
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.append(str(BACKEND))
@@ -28,6 +31,12 @@ from ai_layer.rag.kuzu_graph_store import KuzuGraphStore
 from ai_layer.rag.embedding_client import MockEmbeddingClient
 from core.config import get_settings
 
+LEADERSHIP_DEPT_NAME = "Lãnh đạo Sở"
+
+
+def normalize_text(value):
+    return unicodedata.normalize("NFC", value.strip())
+
 def parse_excel():
     excel_path = BACKEND.parent / "Ket xuat to chuc nguoi dung_ Sở Dân tộc và Tôn giáo tỉnh Đăk Lăk.xlsx"
     wb = openpyxl.load_workbook(excel_path, data_only=True)
@@ -51,11 +60,11 @@ def parse_excel():
         if not email or not full_name:
             continue
             
-        # Clean
-        dept_name = dept_name.strip()
-        full_name = full_name.strip()
+        # Clean & Normalize
+        dept_name = normalize_text(dept_name)
+        full_name = normalize_text(full_name)
         email = email.strip()
-        position = position.strip() if position else ""
+        position = normalize_text(position) if position else ""
         role_code = role_code.strip() if role_code else "specialist"
         
         departments_set.add(dept_name)
@@ -115,11 +124,6 @@ def main():
     try:
         # 1. Clear database
         print("Clearing tables...")
-        # Xóa các bảng kpi rules trước
-        db.query(KPICriterion).delete()
-        db.query(DocumentTypeRule).delete()
-        db.query(KPITemplate).delete()
-        
         db.execute(
             text(
                 """
@@ -130,6 +134,9 @@ def main():
                     chat_logs,
                     reports,
                     kpi_scores,
+                    kpi_criteria,
+                    document_type_rules,
+                    kpi_templates,
                     document_chunks,
                     task_evidences,
                     task_assignments,
@@ -176,10 +183,10 @@ def main():
         root_dept = Department(code="SO", name="Sở Dân tộc và Tôn giáo tỉnh Đắk Lắk", parent_id=None)
         db.add(root_dept)
         db.flush()
-        dept_mapping["Lãnh đạo Sở"] = root_dept
+        dept_mapping[LEADERSHIP_DEPT_NAME] = root_dept
         
         for dept_name in depts:
-            if dept_name == "Lãnh đạo Sở":
+            if normalize_text(dept_name) == LEADERSHIP_DEPT_NAME:
                 continue
             code = make_dept_code(dept_name)
             dept_obj = Department(code=code, name=dept_name, parent_id=root_dept.id)
@@ -390,5 +397,4 @@ def main():
         db.close()
 
 if __name__ == "__main__":
-    from sqlalchemy import text
     main()

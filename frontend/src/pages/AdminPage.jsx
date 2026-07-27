@@ -10,6 +10,7 @@ import {
   UnlockOutlined,
   UserAddOutlined,
   ApiOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import {
   Avatar,
@@ -30,6 +31,7 @@ import {
   Statistic,
   Card,
   Divider,
+  Popconfirm,
 } from 'antd';
 import { useEffect, useState } from 'react';
 import { adminApi } from '../api/adminApi';
@@ -84,6 +86,7 @@ export default function AdminPage() {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState(null);
 
   // Modal states
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -130,14 +133,16 @@ export default function AdminPage() {
     inactive: users.filter((u) => !u.is_active).length,
   };
 
-  // Filter theo search
-  const filteredUsers = users.filter(
-    (u) =>
+  // Filter theo search & phòng ban
+  const filteredUsers = users.filter((u) => {
+    const matchSearch =
       u.full_name?.toLowerCase().includes(searchText.toLowerCase()) ||
       u.email?.toLowerCase().includes(searchText.toLowerCase()) ||
       u.position_title?.toLowerCase().includes(searchText.toLowerCase()) ||
-      u.department_name?.toLowerCase().includes(searchText.toLowerCase()),
-  );
+      u.department_name?.toLowerCase().includes(searchText.toLowerCase());
+    const matchDept = selectedDepartmentFilter ? u.department_id === selectedDepartmentFilter : true;
+    return matchSearch && matchDept;
+  });
 
   // Handlers
   const openEditModal = (user) => {
@@ -214,6 +219,16 @@ export default function AdminPage() {
       fetchUsers();
     } catch (err) {
       message.error(err.response?.data?.detail || 'Thao tác thất bại.');
+    }
+  };
+
+  const handleHardDelete = async (user) => {
+    try {
+      await adminApi.deleteUserHard(user.id);
+      message.success(`Đã xoá vĩnh viễn tài khoản ${user.full_name}`);
+      fetchUsers();
+    } catch (err) {
+      message.error(err.response?.data?.detail || 'Xoá tài khoản thất bại.');
     }
   };
 
@@ -315,6 +330,23 @@ export default function AdminPage() {
               onClick={() => handleToggleActive(record)}
             />
           </Tooltip>
+          <Popconfirm
+            title="Xoá vĩnh viễn tài khoản?"
+            description="Thao tác này sẽ xoá toàn bộ dữ liệu liên quan và không thể khôi phục."
+            onConfirm={() => handleHardDelete(record)}
+            okText="Xoá"
+            cancelText="Huỷ"
+            okButtonProps={{ danger: true }}
+          >
+            <Tooltip title="Xoá vĩnh viễn">
+              <Button
+                id={`delete-btn-${record.id}`}
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+              />
+            </Tooltip>
+          </Popconfirm>
         </Space>
       ),
     },
@@ -375,7 +407,7 @@ export default function AdminPage() {
 
       {/* Search + Table */}
       <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <Input
             id="admin-search-input"
             placeholder="Tìm kiếm theo tên, email, chức vụ, phòng ban..."
@@ -384,6 +416,15 @@ export default function AdminPage() {
             onChange={(e) => setSearchText(e.target.value)}
             style={{ maxWidth: 400, borderRadius: 8 }}
             allowClear
+          />
+          <Select
+            id="admin-dept-filter"
+            placeholder="Lọc theo phòng ban"
+            allowClear
+            value={selectedDepartmentFilter}
+            onChange={(val) => setSelectedDepartmentFilter(val)}
+            style={{ minWidth: 250 }}
+            options={departments.map(d => ({ label: d.name, value: d.id }))}
           />
         </div>
         <Table

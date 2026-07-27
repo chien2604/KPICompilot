@@ -158,3 +158,45 @@ def deactivate_user(
     user.is_active = False
     db.commit()
     return {"status": "success", "message": f"Đã vô hiệu hoá tài khoản {user.full_name}."}
+
+
+@router.delete("/{user_id}/hard")
+def delete_user_hard(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+) -> dict:
+    """Admin xoá vĩnh viễn tài khoản và dữ liệu liên quan."""
+    from sqlalchemy import update, delete as sql_delete
+    from db.models.tasks import Task, TaskAssignment
+    from db.models.reports import Report
+    from db.models.kpi import KPIScore
+    from db.models.evidences import TaskEvidence
+    from db.models.chat import Conversation, ChatLog
+
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng.")
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="Không thể xoá tài khoản của chính mình.")
+
+    try:
+        # Nullify foreign keys that can be null
+        db.execute(update(Task).where(Task.creator_id == user_id).values(creator_id=None))
+        db.execute(update(Report).where(Report.created_by == user_id).values(created_by=None))
+        db.execute(update(ChatLog).where(ChatLog.user_id == user_id).values(user_id=None))
+        db.execute(update(Conversation).where(Conversation.user_id == user_id).values(user_id=None))
+        
+        # Delete related data that cannot be null or makes no sense without user
+        db.execute(sql_delete(TaskAssignment).where(TaskAssignment.user_id == user_id))
+        db.execute(sql_delete(KPIScore).where(KPIScore.user_id == user_id))
+        db.execute(sql_delete(TaskEvidence).where(TaskEvidence.uploaded_by == user_id))
+
+        # Delete user
+        db.delete(user)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Lỗi khi xoá người dùng: {str(e)}")
+
+    return {"status": "success", "message": f"Đã xoá vĩnh viễn tài khoản {user.full_name}."}

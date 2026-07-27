@@ -22,7 +22,10 @@ export default function HeatmapPage() {
   }, []);
 
   // Tổng hợp số liệu
-  const totalStaff = users.length;
+  const totalStaff = users.filter(u => {
+    const r = (u.role || '').toLowerCase();
+    return r !== 'leader' && r !== 'admin';
+  }).length;
   const avgKpi = heatmapData.length
     ? Math.round((heatmapData.reduce((s, d) => s + d.avg_kpi, 0) / heatmapData.length) * 10) / 10
     : null;
@@ -50,7 +53,7 @@ export default function HeatmapPage() {
               <TeamOutlined />
             </div>
             <div className="heatmap-summary-card__body">
-              <div className="heatmap-summary-card__label">Tổng nhân lực</div>
+              <div className="heatmap-summary-card__label">Tổng số công chức, người lao động</div>
               <div className="heatmap-summary-card__value" style={{ color: '#0ea5e9' }}>{totalStaff}</div>
               <div className="heatmap-summary-card__sub">{departments.length} đơn vị</div>
             </div>

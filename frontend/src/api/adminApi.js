@@ -24,6 +24,9 @@ export const adminApi = {
   activateUser: (userId) =>
     apiClient.patch(`/users/${userId}/role`, { is_active: true }).then((r) => r.data),
 
+  // Xoá vĩnh viễn tài khoản (hard delete)
+  deleteUserHard: (userId) => apiClient.delete(`/users/${userId}/hard`).then((r) => r.data),
+
   // Lấy danh sách phòng ban
   listDepartments: () => apiClient.get('/departments').then((r) => r.data),
 };
