@@ -9,6 +9,7 @@ import {
   StopOutlined,
   UnlockOutlined,
   UserAddOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 import {
   Avatar,
@@ -256,15 +257,15 @@ export default function AdminPage() {
       width: 150,
       render: (_, record) => {
         if (record.is_admin) {
-          return <Tag color="red">Admin</Tag>;
+          return <Tag color="geekblue" style={{ borderColor: '#1d39c4' }}>Admin</Tag>;
         }
         const posOpt = POSITION_OPTIONS.find(p => p.value === record.position_title);
         const capLabel = posOpt ? posOpt.group : 'Công chức';
-
-        let color = 'gold'; // Công chức
-        if (capLabel === 'Lãnh đạo Sở') color = 'purple';
-        else if (capLabel === 'Lãnh đạo phòng') color = 'cyan';
-
+        
+        let color = 'cyan'; // Công chức
+        if (capLabel === 'Lãnh đạo Sở') color = 'blue';
+        else if (capLabel === 'Lãnh đạo phòng') color = 'processing';
+        
         return <Tag color={color}>{capLabel}</Tag>;
       },
     },
@@ -275,9 +276,9 @@ export default function AdminPage() {
       width: 110,
       render: (active) =>
         active ? (
-          <Tag color="success" icon={<CheckCircleOutlined />}>Hoạt động</Tag>
+          <Tag color="blue" icon={<CheckCircleOutlined />}>Hoạt động</Tag>
         ) : (
-          <Tag color="error" icon={<StopOutlined />}>Đã khoá</Tag>
+          <Tag color="default" icon={<StopOutlined />}>Đã khoá</Tag>
         ),
     },
     {
@@ -324,10 +325,10 @@ export default function AdminPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <Title level={3} style={{ margin: 0, color: '#1a1a2e' }}>
-            🔧 Quản trị hệ thống
+          <Title level={3} style={{ margin: 0, color: '#002c8c', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ApiOutlined style={{ color: '#1677ff' }} /> Quản trị hệ thống
           </Title>
-          <Text type="secondary">Quản lý tài khoản và phân quyền người dùng</Text>
+          <Text type="secondary" style={{ marginTop: 4, display: 'block' }}>Quản lý tài khoản và phân quyền hệ thống</Text>
         </div>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={fetchUsers} loading={loading}>
@@ -341,7 +342,7 @@ export default function AdminPage() {
               createForm.resetFields();
               setCreateModalOpen(true);
             }}
-            style={{ background: '#6366f1', borderColor: '#6366f1' }}
+            style={{ background: '#1677ff', borderColor: '#1677ff' }}
           >
             Thêm người dùng
           </Button>
@@ -351,23 +352,23 @@ export default function AdminPage() {
       {/* Thống kê */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
-          <Card bordered={false} style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', borderRadius: 12 }}>
-            <Statistic title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Tổng người dùng</span>} value={stats.total} valueStyle={{ color: '#fff', fontWeight: 700 }} />
+          <Card bordered={false} style={{ background: 'linear-gradient(135deg, #0958d9 0%, #003eb3 100%)', borderRadius: 12, boxShadow: '0 4px 12px rgba(9, 88, 217, 0.15)' }}>
+            <Statistic title={<span style={{ color: 'rgba(255,255,255,0.7)' }}>Tổng người dùng</span>} value={stats.total} valueStyle={{ color: '#fff', fontWeight: 700 }} />
           </Card>
         </Col>
         <Col span={6}>
-          <Card bordered={false} style={{ background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)', borderRadius: 12 }}>
-            <Statistic title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Đang hoạt động</span>} value={stats.active} valueStyle={{ color: '#fff', fontWeight: 700 }} />
+          <Card bordered={false} style={{ background: 'linear-gradient(135deg, #13c2c2 0%, #08979c 100%)', borderRadius: 12, boxShadow: '0 4px 12px rgba(19, 194, 194, 0.15)' }}>
+            <Statistic title={<span style={{ color: 'rgba(255,255,255,0.7)' }}>Đang hoạt động</span>} value={stats.active} valueStyle={{ color: '#fff', fontWeight: 700 }} />
           </Card>
         </Col>
         <Col span={6}>
-          <Card bordered={false} style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', borderRadius: 12 }}>
-            <Statistic title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Quản trị viên</span>} value={stats.admins} valueStyle={{ color: '#fff', fontWeight: 700 }} />
+          <Card bordered={false} style={{ background: 'linear-gradient(135deg, #2f54eb 0%, #1d39c4 100%)', borderRadius: 12, boxShadow: '0 4px 12px rgba(47, 84, 235, 0.15)' }}>
+            <Statistic title={<span style={{ color: 'rgba(255,255,255,0.7)' }}>Quản trị viên</span>} value={stats.admins} valueStyle={{ color: '#fff', fontWeight: 700 }} />
           </Card>
         </Col>
         <Col span={6}>
-          <Card bordered={false} style={{ background: 'linear-gradient(135deg, #f7971e 0%, #ffd200 100%)', borderRadius: 12 }}>
-            <Statistic title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Đã khoá</span>} value={stats.inactive} valueStyle={{ color: '#fff', fontWeight: 700 }} />
+          <Card bordered={false} style={{ background: 'linear-gradient(135deg, #595959 0%, #434343 100%)', borderRadius: 12, boxShadow: '0 4px 12px rgba(89, 89, 89, 0.15)' }}>
+            <Statistic title={<span style={{ color: 'rgba(255,255,255,0.7)' }}>Đã khoá</span>} value={stats.inactive} valueStyle={{ color: '#fff', fontWeight: 700 }} />
           </Card>
         </Col>
       </Row>
