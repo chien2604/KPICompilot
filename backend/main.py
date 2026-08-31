@@ -1,9 +1,18 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-from api.routes import auth, chatbot, conversations, departments, evidences, kpi, reports, tasks, users
+from api.routes import (
+    auth,
+    chatbot,
+    conversations,
+    departments,
+    evidences,
+    kpi,
+    reports,
+    tasks,
+    users,
+)
 from core.config import get_settings
 from core.logging import configure_logging
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 configure_logging()
 settings = get_settings()
@@ -30,10 +39,12 @@ app.include_router(reports.router, prefix=settings.api_prefix)
 
 @app.get("/health")
 def health() -> dict:
+    """Return health information for the operation."""
+
     return {"status": "ok", "app": settings.app_name}
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8017, reload=True)

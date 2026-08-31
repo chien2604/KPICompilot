@@ -13,6 +13,7 @@ Mọi lần fallback đều được log WARNING rõ lý do, kèm cờ "_source"
 trả về để bên gọi (ReportService) biết và lưu vào summary_json, giúp debug từ DB/API
 mà không cần đọc log server.
 """
+
 import logging
 import re
 from pathlib import Path
@@ -31,13 +32,13 @@ Lần này PHẢI tuân thủ NGHIÊM NGẶT các quy tắc:
 - KHÔNG thêm lời giải thích, lời chào, hoặc ghi chú nào trước/sau báo cáo.
 - PHẢI có đúng khối tiêu ngữ hành chính ở đầu.
 - PHẢI có đủ 5 mục chính: "## 1. Tình hình chung", "## 2. Điểm sáng", "## 3. Nhiệm vụ chậm",
-  "## 4. Cá nhân/phòng ban rủi ro", "## 5. Kiến nghị"."""
+  "## 4. Cá nhân/đơn vị rủi ro", "## 5. Kiến nghị"."""
 
 _REQUIRED_HEADINGS = [
     "1. Tình hình chung",
     "2. Điểm sáng",
     "3. Nhiệm vụ chậm",
-    "4. Cá nhân/phòng ban rủi ro",
+    "4. Cá nhân/đơn vị rủi ro",
     "5. Kiến nghị",
 ]
 
@@ -75,7 +76,11 @@ def _validate_markdown(md: str) -> str | None:
 
 
 class ReportGenerator:
+    """Represent report generator data and behavior."""
+
     def __init__(self, llm: BaseLLMClient | None = None) -> None:
+        """Initialize the report generator."""
+
         self.llm = llm or get_llm_client()
         self._prompt_template = PROMPT_PATH.read_text(encoding="utf-8")
 
@@ -88,37 +93,56 @@ class ReportGenerator:
 
         prompt = f"{self._prompt_template}\n\nDữ liệu:\n{_json.dumps(data, ensure_ascii=False, indent=2)}"
         llm_class_name = type(self.llm).__name__
-        logger.info("[ReportGenerator] Gọi LLM (%s) để sinh báo cáo dạng Markdown", llm_class_name)
+        logger.info(
+            "[ReportGenerator] Gọi LLM (%s) để sinh báo cáo dạng Markdown",
+            llm_class_name,
+        )
 
         md, error = self._call_and_validate(prompt)
         if md:
-            logger.info("[ReportGenerator] LLM sinh báo cáo thành công ở lần gọi đầu (%d ký tự)", len(md))
+            logger.info(
+                "[ReportGenerator] LLM sinh báo cáo thành công ở lần gọi đầu (%d ký tự)",
+                len(md),
+            )
             return {"content": md, "_source": "llm"}
 
         logger.warning(
-            "[ReportGenerator] Lần gọi LLM đầu KHÔNG đạt yêu cầu (lý do: %s). Đang retry lần 2...", error
+            "[ReportGenerator] Lần gọi LLM đầu KHÔNG đạt yêu cầu (lý do: %s). Đang retry lần 2...",
+            error,
         )
         retry_prompt = prompt + _RETRY_SUFFIX.format(error=error)
         md, second_error = self._call_and_validate(retry_prompt)
         if md:
-            logger.info("[ReportGenerator] LLM sinh báo cáo thành công ở lần retry (%d ký tự)", len(md))
+            logger.info(
+                "[ReportGenerator] LLM sinh báo cáo thành công ở lần retry (%d ký tự)",
+                len(md),
+            )
             return {"content": md, "_source": "llm_retry"}
 
         logger.warning(
             "[ReportGenerator] Cả 2 lần gọi LLM (%s) đều KHÔNG đạt yêu cầu (lần 1: %s | lần 2: %s). "
             "DÙNG FALLBACK ĐƠN GIẢN.",
-            llm_class_name, error, second_error,
+            llm_class_name,
+            error,
+            second_error,
         )
         return {"content": self._fallback_markdown(second_error), "_source": "fallback"}
 
     def _call_and_validate(self, prompt: str) -> tuple[str | None, str | None]:
+        """Handle the and validate."""
+
         try:
             raw = self.llm.complete(prompt)
         except Exception as exc:
-            logger.exception("[ReportGenerator] LLM client raise exception khi gọi complete()")
+            logger.exception(
+                "[ReportGenerator] LLM client raise exception khi gọi complete()"
+            )
             return None, f"LLM call exception: {exc}"
 
-        logger.debug("[ReportGenerator] Raw LLM response (first 500 chars): %s", raw[:500] if raw else "(rỗng)")
+        logger.debug(
+            "[ReportGenerator] Raw LLM response (first 500 chars): %s",
+            raw[:500] if raw else "(rỗng)",
+        )
         cleaned = _clean_markdown(raw)
         error = _validate_markdown(cleaned)
         if error:
@@ -126,6 +150,8 @@ class ReportGenerator:
         return cleaned, None
 
     def _fallback_markdown(self, reason: str | None) -> str:
+        """Return fallback the markdown."""
+
         return (
             "<p style='text-align:center;'><strong>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong></p>\n"
             "<p style='text-align:center;'><strong>Độc lập - Tự do - Hạnh phúc</strong></p>\n"

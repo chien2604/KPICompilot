@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class EvidenceOut(BaseModel):
+    """Represent evidence out data and behavior."""
+
     id: int
     task_id: int
     uploaded_by: int
@@ -21,6 +23,8 @@ class EvidenceOut(BaseModel):
 
 
 class EvidenceAnalysisOut(BaseModel):
+    """Represent evidence analysis out data and behavior."""
+
     evidence_id: int
     relevance_score: float | None = None
     summary: str | None = None

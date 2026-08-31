@@ -1,5 +1,6 @@
-import { apiClient } from './client';
+import { apiClient } from "./client";
 
 export const chatbotApi = {
-  send: (payload) => apiClient.post('/chatbot/message', payload).then((res) => res.data),
+  send: (payload) =>
+    apiClient.post("/chatbot/message", payload).then((res) => res.data),
 };

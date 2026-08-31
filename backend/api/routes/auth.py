@@ -1,18 +1,25 @@
-"""Auth routes: đăng nhập, lấy thông tin user hiện tại, danh sách user được phép giao việc."""
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+"""Provide authentication, session identity, and password management routes."""
 
 from core.deps import get_current_user
-from core.permissions import can_assign_to, get_assignable_users, get_user_level, is_admin
-from core.security import create_access_token, verify_password
+from core.permissions import get_assignable_users, get_user_level, is_admin
+from core.security import create_access_token, hash_password, verify_password
 from db.database import get_db
 from db.models.users import User
-from schemas.auth import LoginRequest, TokenResponse
+from fastapi import APIRouter, Depends, HTTPException, status
+from schemas.auth import (
+    ChangePasswordRequest,
+    LoginRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+)
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _user_to_token_response(user: User, token: str) -> TokenResponse:
+def user_to_token_response(user: User, token: str) -> TokenResponse:
+    """Serialize an authenticated user and a newly issued access token."""
+
     return TokenResponse(
         access_token=token,
         user_id=user.id,
@@ -20,6 +27,7 @@ def _user_to_token_response(user: User, token: str) -> TokenResponse:
         email=user.email,
         role=user.role,
         kpi_role_template=user.kpi_role_template,
+        organization_role=user.organization_role,
         position_title=user.position_title,
         department_id=user.department_id,
         department_name=user.department.name if user.department else None,
@@ -29,107 +37,109 @@ def _user_to_token_response(user: User, token: str) -> TokenResponse:
     )
 
 
+def authenticate_user(database_session: Session, email: str, password: str) -> User:
+    """Validate credentials for an active, fully configured account."""
+
+    user = (
+        database_session.query(User)
+        .filter(
+            User.email == email,
+            User.is_active.is_(True),
+        )
+        .first()
+    )
+    if (
+        not user
+        or not user.hashed_password
+        or not verify_password(password, user.hashed_password)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email hoặc mật khẩu không đúng.",
+        )
+    return user
+
+
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
-    """Đăng nhập bằng email + mật khẩu, trả về JWT token."""
-    user = db.query(User).filter(User.email == payload.email, User.is_active.is_(True)).first()
-    if not user or not user.hashed_password:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email hoặc mật khẩu không đúng.")
-    if not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email hoặc mật khẩu không đúng.")
+def login(
+    payload: LoginRequest, database_session: Session = Depends(get_db)
+) -> TokenResponse:
+    """Authenticate by email and password and return an access token."""
+
+    user = authenticate_user(database_session, str(payload.email), payload.password)
     token = create_access_token({"sub": str(user.id)})
-    return _user_to_token_response(user, token)
+    return user_to_token_response(user, token)
 
 
 @router.get("/me", response_model=TokenResponse)
-def me(current_user: User = Depends(get_current_user)) -> TokenResponse:
-    """Trả về thông tin user đang đăng nhập (dùng token hiện tại)."""
-    # Tạo lại token mới để gia hạn phiên
+def current_identity(current_user: User = Depends(get_current_user)) -> TokenResponse:
+    """Return the current account and refresh its access token."""
+
     token = create_access_token({"sub": str(current_user.id)})
-    return _user_to_token_response(current_user, token)
+    return user_to_token_response(current_user, token)
 
 
 @router.get("/assignable-users")
 def assignable_users(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    database_session: Session = Depends(get_db),
 ) -> list[dict]:
-    """Trả về danh sách user mà người dùng hiện tại có quyền giao việc."""
-    all_users = db.query(User).filter(User.is_active.is_(True)).all()
-    allowed = get_assignable_users(current_user, all_users)
+    """Return active users within the current account's assignment authority."""
+
+    personnel = database_session.query(User).filter(User.role == "user").all()
+    allowed_users = get_assignable_users(current_user, personnel)
     return [
         {
-            "id": u.id,
-            "full_name": u.full_name,
-            "email": u.email,
-            "position_title": u.position_title,
-            "department_id": u.department_id,
-            "department_name": u.department.name if u.department else None,
-            "role": u.role,
-            "kpi_role_template": u.kpi_role_template,
-            "avatar_url": u.avatar_url,
-            "level": get_user_level(u),
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "position_title": user.position_title,
+            "department_id": user.department_id,
+            "department_name": user.department.name if user.department else None,
+            "role": user.role,
+            "kpi_role_template": user.kpi_role_template,
+            "organization_role": user.organization_role,
+            "is_kpi_eligible": user.is_kpi_eligible,
+            "avatar_url": user.avatar_url,
+            "level": get_user_level(user),
         }
-        for u in allowed
+        for user in allowed_users
     ]
 
 
-from schemas.auth import ChangePasswordRequest
-from core.security import hash_password
+def update_password(user: User, old_password: str, new_password: str) -> None:
+    """Validate the existing password and replace it with a secure hash."""
+
+    if not user.hashed_password:
+        raise HTTPException(
+            status_code=400, detail="Tài khoản chưa được thiết lập mật khẩu."
+        )
+    if not verify_password(old_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Mật khẩu cũ không chính xác.")
+    user.hashed_password = hash_password(new_password)
+
 
 @router.post("/change-password")
 def change_password(
     payload: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Thay đổi mật khẩu của người dùng hiện tại."""
-    if not current_user.hashed_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Tài khoản chưa được thiết lập mật khẩu."
-        )
-    if not verify_password(payload.old_password, current_user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Mật khẩu cũ không chính xác."
-        )
-    if len(payload.new_password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Mật khẩu mới phải từ 6 ký tự trở lên."
-        )
-    current_user.hashed_password = hash_password(payload.new_password)
-    db.commit()
-    return {"status": "success", "message": "Đổi mật khẩu thành công!"}
+    database_session: Session = Depends(get_db),
+) -> dict:
+    """Change the password for the authenticated account."""
 
+    update_password(current_user, payload.old_password, payload.new_password)
+    database_session.commit()
+    return {"status": "success", "message": "Đổi mật khẩu thành công."}
 
-from schemas.auth import ResetPasswordRequest
 
 @router.post("/change-password-public")
-def change_password_public(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
-    """Thay đổi mật khẩu ở ngoài màn hình login dựa vào Email + Mật khẩu cũ."""
-    user = db.query(User).filter(User.email == payload.email, User.is_active.is_(True)).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Tài khoản không tồn tại hoặc đã bị khóa."
-        )
-    if not user.hashed_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Tài khoản chưa được thiết lập mật khẩu."
-        )
-    if not verify_password(payload.old_password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Mật khẩu cũ không chính xác."
-        )
-    if len(payload.new_password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Mật khẩu mới phải từ 6 ký tự trở lên."
-        )
+def change_password_public(
+    payload: ResetPasswordRequest,
+    database_session: Session = Depends(get_db),
+) -> dict:
+    """Change a password from the login page using current credentials."""
+
+    user = authenticate_user(database_session, str(payload.email), payload.old_password)
     user.hashed_password = hash_password(payload.new_password)
-    db.commit()
-    return {"status": "success", "message": "Đổi mật khẩu thành công!"}
+    database_session.commit()
+    return {"status": "success", "message": "Đổi mật khẩu thành công."}

@@ -1,0 +1,103 @@
+name: nghia-lam-kpi
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kpi_government}
+      POSTGRES_USER: ${POSTGRES_USER:-kpi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Hãy cấu hình POSTGRES_PASSWORD trong .env.docker}
+    ports:
+      - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - backend_network
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-kpi}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-kpi_government}
+      STORAGE_DIR: /app/storage
+      UPLOAD_DIR: /app/storage/uploads
+      KUZU_DB_PATH: /app/storage/kuzu_db
+      IMPORT_DIR: /app/storage/imports
+      PERSONNEL_IMPORT_PATH: /app/import-data/personnel.xlsx
+      WORK_CATALOG_IMPORT_PATH: /app/import-data/work-catalog.xlsx
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5191}
+    ports:
+      - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8017}:8017"
+    volumes:
+      - backend_storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8017/health', timeout=3)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    networks:
+      - backend_network
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_BIND_ADDRESS:-0.0.0.0}:${FRONTEND_PORT:-5191}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - backend_network
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  postgres_data:
+  backend_storage:
+
+networks:
+  backend_network:
+    driver: bridge
+

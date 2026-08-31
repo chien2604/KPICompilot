@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from sqlalchemy import text
 
@@ -10,6 +10,8 @@ from db.database import engine  # noqa: E402
 
 
 def upgrade() -> None:
+    """Apply the operation."""
+
     with engine.begin() as conn:
         conn.execute(
             text(

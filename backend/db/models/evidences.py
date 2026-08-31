@@ -1,16 +1,24 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.database import Base
 
+if TYPE_CHECKING:
+    from db.models.tasks import Task
+
 
 class TaskEvidence(Base):
+    """Represent task evidence data and behavior."""
+
     __tablename__ = "task_evidences"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    task_id: Mapped[int] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), index=True
+    )
     uploaded_by: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     file_name: Mapped[str] = mapped_column(String(500), nullable=False)
     file_type: Mapped[str | None] = mapped_column(String(100))

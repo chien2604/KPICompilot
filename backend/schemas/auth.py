@@ -1,33 +1,42 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 
 
 class LoginRequest(BaseModel):
-    email: str
+    """Validate email and password login input."""
+
+    email: EmailStr
     password: str
 
 
 class TokenResponse(BaseModel):
+    """Return the authenticated account and access token."""
+
     access_token: str
     token_type: str = "bearer"
     user_id: int
     full_name: str
-    email: str
+    email: str | None
     role: str
     kpi_role_template: str
+    organization_role: str
     position_title: str | None
     department_id: int | None
     department_name: str | None
     avatar_url: str | None
-    level: int  # cấp bậc phân quyền (0=Admin, 1=GĐ, 5=Chuyên viên)
-    is_admin: bool = False  # True nếu role == "admin"
+    level: int
+    is_admin: bool = False
 
 
 class ChangePasswordRequest(BaseModel):
+    """Validate an authenticated password change."""
+
     old_password: str
-    new_password: str
+    new_password: str = Field(min_length=8)
 
 
 class ResetPasswordRequest(BaseModel):
-    email: str
+    """Validate a public password change using existing credentials."""
+
+    email: EmailStr
     old_password: str
-    new_password: str
+    new_password: str = Field(min_length=8)

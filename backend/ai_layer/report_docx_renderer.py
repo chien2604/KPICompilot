@@ -15,6 +15,7 @@ YÊU CẦU ĐỊNH DẠNG (cố định, không phụ thuộc theme Word):
   kế thừa từ style Normal. Phải set rõ ràng ở mức style VÀ ở mức run (vì một số
   phiên bản Word/python-docx không áp dụng đổi màu cấp style cho run đã tồn tại).
 """
+
 from __future__ import annotations
 
 from io import BytesIO
@@ -33,7 +34,16 @@ _FONT_COLOR = RGBColor(0, 0, 0)  # đen tuyệt đối
 # Các style cần ép font + màu đen. "Normal" áp dụng cho mọi paragraph/list thường,
 # "Heading 1".."Heading 4" áp dụng cho <h2>/<h3> (xem mapping trong _render_block),
 # "Title" áp dụng cho tiêu đề chính nếu dùng add_heading(level=0).
-_STYLES_TO_FORCE = ["Normal", "Title", "Heading 1", "Heading 2", "Heading 3", "Heading 4", "List Bullet", "List Number"]
+_STYLES_TO_FORCE = [
+    "Normal",
+    "Title",
+    "Heading 1",
+    "Heading 2",
+    "Heading 3",
+    "Heading 4",
+    "List Bullet",
+    "List Number",
+]
 
 
 def _force_style_font_black(document: Document, style_name: str) -> None:
@@ -73,36 +83,51 @@ def _apply_run_font_black(run) -> None:
 
 
 def _force_all_runs_in_paragraph(paragraph) -> None:
+    """Handle the all runs in paragraph."""
+
     for run in paragraph.runs:
         _apply_run_font_black(run)
 
 
 def _is_centered(tag: Tag) -> bool:
+    """Determine whether the centered."""
+
     style = tag.get("style", "") or ""
     return "text-align:center" in style.replace(" ", "")
 
 
 def _set_cell_border(cell) -> None:
+    """Handle the cell border."""
+
     tc_pr = cell._tc.get_or_add_tcPr()
     borders = tc_pr.makeelement(qn("w:tcBorders"), {})
     for edge in ("top", "left", "bottom", "right"):
-        element = tc_pr.makeelement(qn(f"w:{edge}"), {
-            qn("w:val"): "single",
-            qn("w:sz"): "4",
-            qn("w:space"): "0",
-            qn("w:color"): _BORDER_COLOR,
-        })
+        element = tc_pr.makeelement(
+            qn(f"w:{edge}"),
+            {
+                qn("w:val"): "single",
+                qn("w:sz"): "4",
+                qn("w:space"): "0",
+                qn("w:color"): _BORDER_COLOR,
+            },
+        )
         borders.append(element)
     tc_pr.append(borders)
 
 
 def _set_cell_shading(cell, fill: str) -> None:
+    """Handle the cell shading."""
+
     tc_pr = cell._tc.get_or_add_tcPr()
-    shd = tc_pr.makeelement(qn("w:shd"), {qn("w:val"): "clear", qn("w:color"): "auto", qn("w:fill"): fill})
+    shd = tc_pr.makeelement(
+        qn("w:shd"), {qn("w:val"): "clear", qn("w:color"): "auto", qn("w:fill"): fill}
+    )
     tc_pr.append(shd)
 
 
-def _add_paragraph_with_inline_formatting(document: Document, tag: Tag, style: str | None = None):
+def _add_paragraph_with_inline_formatting(
+    document: Document, tag: Tag, style: str | None = None
+):
     """Thêm 1 paragraph, giữ định dạng <strong>/<b> bên trong (bold từng run riêng),
     luôn ép font Times New Roman + màu đen cho mọi run."""
     paragraph = document.add_paragraph(style=style)
@@ -135,6 +160,8 @@ def _add_paragraph_with_inline_formatting(document: Document, tag: Tag, style: s
 
 
 def _render_table(document: Document, table_tag: Tag) -> None:
+    """Render the table."""
+
     rows_data: list[list[str]] = []
     header_cells: list[str] = []
 
@@ -142,7 +169,9 @@ def _render_table(document: Document, table_tag: Tag) -> None:
     if thead:
         header_row = thead.find("tr")
         if header_row:
-            header_cells = [cell.get_text(strip=True) for cell in header_row.find_all(["th", "td"])]
+            header_cells = [
+                cell.get_text(strip=True) for cell in header_row.find_all(["th", "td"])
+            ]
 
     tbody = table_tag.find("tbody") or table_tag
     for tr in tbody.find_all("tr"):
@@ -161,6 +190,8 @@ def _render_table(document: Document, table_tag: Tag) -> None:
         col.width = col_width
 
     def _fill_cell(cell, text: str, bold: bool = False) -> None:
+        """Handle the cell."""
+
         cell.text = text
         cell.width = col_width
         _set_cell_border(cell)
@@ -176,7 +207,11 @@ def _render_table(document: Document, table_tag: Tag) -> None:
         header_row_obj = table.add_row()
         for index in range(col_count):
             cell = header_row_obj.cells[index]
-            _fill_cell(cell, header_cells[index] if index < len(header_cells) else "", bold=True)
+            _fill_cell(
+                cell,
+                header_cells[index] if index < len(header_cells) else "",
+                bold=True,
+            )
             _set_cell_shading(cell, _HEADER_FILL)
 
     for row in rows_data:
@@ -191,6 +226,7 @@ def _render_table(document: Document, table_tag: Tag) -> None:
 def render_report_docx(markdown_content: str) -> bytes:
     """Parse Markdown báo cáo, convert sang HTML và render ra bytes của file .docx."""
     import markdown
+
     html = markdown.markdown(markdown_content or "", extensions=["tables"])
     wrapped_html = f'<div class="report">{html}</div>'
     soup = BeautifulSoup(wrapped_html, "html.parser")
@@ -198,7 +234,7 @@ def render_report_docx(markdown_content: str) -> bytes:
     document = Document()
 
     section = document.sections[0]
-    section.page_width = Inches(8.27)   # A4
+    section.page_width = Inches(8.27)  # A4
     section.page_height = Inches(11.69)
     section.top_margin = Inches(1.1)
     section.bottom_margin = Inches(1)
@@ -215,8 +251,10 @@ def render_report_docx(markdown_content: str) -> bytes:
     container = soup.find("div", class_="report")
     if not container:
         container = soup.body if soup.body else soup
-        
-    for tag in container.find_all(["p", "h2", "h3", "table", "ul", "ol"], recursive=False):
+
+    for tag in container.find_all(
+        ["p", "h2", "h3", "table", "ul", "ol"], recursive=False
+    ):
         if tag.name == "p":
             paragraph = _add_paragraph_with_inline_formatting(document, tag)
             if "CỘNG HÒA XÃ HỘI" in tag.get_text():
@@ -240,7 +278,9 @@ def render_report_docx(markdown_content: str) -> bytes:
         elif tag.name in ("ul", "ol"):
             style_name = "List Number" if tag.name == "ol" else "List Bullet"
             for li in tag.find_all("li", recursive=False):
-                paragraph = document.add_paragraph(li.get_text(strip=True), style=style_name)
+                paragraph = document.add_paragraph(
+                    li.get_text(strip=True), style=style_name
+                )
                 _force_all_runs_in_paragraph(paragraph)
 
     buffer = BytesIO()

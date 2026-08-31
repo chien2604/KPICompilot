@@ -1,9 +1,13 @@
 backend/.env
+/.env
+/.env.docker
 backend/.venv/
 backend/storage/uploads/*
 !backend/storage/uploads/.gitkeep
 backend/storage/kuzu_db/*
 !backend/storage/kuzu_db/.gitkeep
+backend/storage/imports/*
+!backend/storage/imports/.gitkeep
 frontend/node_modules/
 frontend/dist/
 frontend/.env

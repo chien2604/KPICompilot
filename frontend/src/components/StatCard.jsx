@@ -1,10 +1,20 @@
-import { Card } from 'antd';
+import { Card } from "antd";
 
-export default function StatCard({ title, value, suffix, precision, icon }) {
-  const displayValue = precision != null ? Number(value).toFixed(precision) : value;
+/** Render the stat card interface. */
+export default function StatCard({
+  title,
+  value,
+  suffix,
+  precision,
+  icon,
+  subtext,
+  tone = "blue",
+}) {
+  const displayValue =
+    precision != null ? Number(value).toFixed(precision) : value;
 
   return (
-    <Card className="stat-card">
+    <Card className={`stat-card stat-card--${tone}`}>
       <div className="stat-card__icon">{icon}</div>
       <div className="stat-card__body">
         <div className="stat-card__title">{title}</div>
@@ -12,6 +22,7 @@ export default function StatCard({ title, value, suffix, precision, icon }) {
           <span className="stat-card__value">{displayValue}</span>
           {suffix && <span className="stat-card__suffix">{suffix}</span>}
         </div>
+        {subtext && <div className="stat-card__subtext">{subtext}</div>}
       </div>
     </Card>
   );

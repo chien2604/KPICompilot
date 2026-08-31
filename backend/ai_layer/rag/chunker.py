@@ -1,9 +1,15 @@
 class TextChunker:
+    """Represent text chunker data and behavior."""
+
     def __init__(self, chunk_size: int = 900, overlap: int = 120) -> None:
+        """Initialize the text chunker."""
+
         self.chunk_size = chunk_size
         self.overlap = overlap
 
     def split(self, text: str) -> list[str]:
+        """Split the operation."""
+
         cleaned = " ".join((text or "").split())
         if not cleaned:
             return ["Minh chứng chưa có nội dung text trích xuất được."]
@@ -12,5 +18,9 @@ class TextChunker:
         while start < len(cleaned):
             end = start + self.chunk_size
             chunks.append(cleaned[start:end])
-            start = max(end - self.overlap, end) if end >= len(cleaned) else end - self.overlap
+            start = (
+                max(end - self.overlap, end)
+                if end >= len(cleaned)
+                else end - self.overlap
+            )
         return chunks

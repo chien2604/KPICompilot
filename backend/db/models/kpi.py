@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -8,6 +8,8 @@ from db.database import Base
 
 
 class KPITemplate(Base):
+    """Represent k p i template data and behavior."""
+
     __tablename__ = "kpi_templates"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -16,14 +18,20 @@ class KPITemplate(Base):
     target_role: Mapped[str] = mapped_column(String(80), nullable=False)
     total_score: Mapped[float] = mapped_column(Float, default=100)
 
-    criteria: Mapped[list["KPICriterion"]] = relationship(back_populates="template", cascade="all, delete-orphan")
+    criteria: Mapped[list["KPICriterion"]] = relationship(
+        back_populates="template", cascade="all, delete-orphan"
+    )
 
 
 class KPICriterion(Base):
+    """Represent k p i criterion data and behavior."""
+
     __tablename__ = "kpi_criteria"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    template_id: Mapped[int] = mapped_column(ForeignKey("kpi_templates.id", ondelete="CASCADE"), index=True)
+    template_id: Mapped[int] = mapped_column(
+        ForeignKey("kpi_templates.id", ondelete="CASCADE"), index=True
+    )
     group_code: Mapped[str] = mapped_column(String(20), nullable=False)
     group_name: Mapped[str] = mapped_column(String(255), nullable=False)
     criterion_code: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -37,6 +45,8 @@ class KPICriterion(Base):
 
 
 class DocumentTypeRule(Base):
+    """Represent document type rule data and behavior."""
+
     __tablename__ = "document_type_rules"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -46,7 +56,45 @@ class DocumentTypeRule(Base):
     scoring_rule_text: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class WorkCatalogItem(Base):
+    """Store an approved product or work item from Decision 283/QĐ-UBND."""
+
+    __tablename__ = "work_catalog_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False, index=True)
+    catalog_scope: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    department_code: Mapped[str | None] = mapped_column(String(50), index=True)
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    details: Mapped[str] = mapped_column(Text, nullable=False)
+    output: Mapped[str] = mapped_column(String(500), nullable=False)
+    complexity_group: Mapped[str] = mapped_column(String(10), nullable=False)
+    score_range: Mapped[str] = mapped_column(String(30), nullable=False)
+    conversion_score: Mapped[float] = mapped_column(Float, nullable=False)
+    conversion_factor: Mapped[float] = mapped_column(Float, nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class KPIAssessmentInput(Base):
+    """Persist reviewer inputs that cannot be inferred from tasks or evidence."""
+
+    __tablename__ = "kpi_assessment_inputs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    period_month: Mapped[str] = mapped_column(String(7), index=True)
+    common_scores_json: Mapped[dict] = mapped_column(JSONB, default=dict)
+    management_metrics_json: Mapped[dict] = mapped_column(JSONB, default=dict)
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
 class KPIScore(Base):
+    """Represent k p i score data and behavior."""
+
     __tablename__ = "kpi_scores"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

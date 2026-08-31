@@ -1,29 +1,33 @@
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import { statusLabel } from '../utils/formatters';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { statusLabel } from "../utils/formatters";
 
 const STATUS_COLOR = {
-  COMPLETED: '#16a34a',
-  IN_PROGRESS: '#0ea5e9',
-  NOT_STARTED: '#64748b',
-  OVERDUE: '#dc2626',
+  COMPLETED: "#16a34a",
+  IN_PROGRESS: "#f59e0b",
+  NOT_STARTED: "#64748b",
+  OVERDUE: "#dc2626",
 };
 
-const STATUS_ORDER = ['COMPLETED', 'IN_PROGRESS', 'NOT_STARTED', 'OVERDUE'];
+const STATUS_ORDER = ["COMPLETED", "IN_PROGRESS", "NOT_STARTED", "OVERDUE"];
 
+/** Render the kpi donut chart interface. */
 export default function KpiDonutChart({ data = {} }) {
-  const rows = STATUS_ORDER
-    .filter((key) => data[key] != null)
-    .map((key) => ({
-      key,
-      name: statusLabel[key] || key,
-      value: data[key],
-      color: STATUS_COLOR[key],
-    }));
+  const rows = STATUS_ORDER.filter((key) => data[key] != null).map((key) => ({
+    key,
+    name: statusLabel[key] || key,
+    value: data[key],
+    color: STATUS_COLOR[key],
+  }));
 
   // Thêm các key không nằm trong STATUS_ORDER
   Object.entries(data).forEach(([key, value]) => {
     if (!STATUS_ORDER.includes(key)) {
-      rows.push({ key, name: statusLabel[key] || key, value, color: '#a3a3a3' });
+      rows.push({
+        key,
+        name: statusLabel[key] || key,
+        value,
+        color: "#a3a3a3",
+      });
     }
   });
 
@@ -63,7 +67,10 @@ export default function KpiDonutChart({ data = {} }) {
       <div className="donut-chart-legend">
         {rows.map((entry) => (
           <div key={entry.key} className="donut-chart-legend__item">
-            <span className="donut-chart-legend__dot" style={{ background: entry.color }} />
+            <span
+              className="donut-chart-legend__dot"
+              style={{ background: entry.color }}
+            />
             <span className="donut-chart-legend__name">{entry.name}</span>
             <span className="donut-chart-legend__value">{entry.value}</span>
           </div>

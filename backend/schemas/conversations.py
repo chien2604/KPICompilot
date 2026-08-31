@@ -4,10 +4,14 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ConversationCreateIn(BaseModel):
+    """Represent conversation create in data and behavior."""
+
     user_id: int | None = None
 
 
 class ConversationOut(BaseModel):
+    """Represent conversation out data and behavior."""
+
     conversation_id: int
     user_id: int | None = None
     title: str
@@ -19,6 +23,8 @@ class ConversationOut(BaseModel):
 
 
 class ConversationMessageOut(BaseModel):
+    """Represent conversation message out data and behavior."""
+
     message_id: int
     conversation_id: int
     role: str
@@ -31,6 +37,8 @@ class ConversationMessageOut(BaseModel):
 
 
 class ConversationDetailOut(BaseModel):
+    """Represent conversation detail out data and behavior."""
+
     conversation: ConversationOut
     messages: list[ConversationMessageOut]
     summary: str = ""

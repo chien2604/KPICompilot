@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.docker
+*.docx
+*.pdf
+frontend
+backend/.env
+backend/.venv
+backend/**/__pycache__
+backend/**/*.pyc
+backend/storage/uploads/*
+backend/storage/kuzu_db/*
+backend/storage/imports/*
+

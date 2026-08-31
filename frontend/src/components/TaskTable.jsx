@@ -1,56 +1,91 @@
 import {
-  Avatar, Badge, Button, Descriptions, Drawer, Progress, Select,
-  Space, Table, Tag, Timeline, Tooltip, Typography,
-} from 'antd';
+  Avatar,
+  Badge,
+  Button,
+  Descriptions,
+  Drawer,
+  Progress,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Timeline,
+  Tooltip,
+  Typography,
+} from "antd";
 import {
-  CalendarOutlined, ClockCircleOutlined, FileTextOutlined,
-  TeamOutlined, TrophyOutlined, UserOutlined,
-} from '@ant-design/icons';
-import { useState } from 'react';
-import StatusTag from './StatusTag';
-import { formatDate } from '../utils/formatters';
+  CalendarOutlined,
+  ClockCircleOutlined,
+  FileTextOutlined,
+  TeamOutlined,
+  TrophyOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
+import { useState } from "react";
+import StatusTag from "./StatusTag";
+import { formatDate } from "../utils/formatters";
 
-const PRIORITY_COLOR = { HIGH: '#0284c7', MEDIUM: '#0ea5e9', LOW: '#38bdf8' };
-const PRIORITY_LABEL = { HIGH: 'Cao', MEDIUM: 'Trung bình', LOW: 'Thấp' };
+const PRIORITY_COLOR = { HIGH: "#e53935", MEDIUM: "#f59e0b", LOW: "#2563eb" };
+const PRIORITY_LABEL = { HIGH: "Cao", MEDIUM: "Trung bình", LOW: "Thấp" };
 
 const STATUS_PROGRESS = {
-  COMPLETED: 100, IN_PROGRESS: 50, NOT_STARTED: 0, OVERDUE: 75,
+  COMPLETED: 100,
+  IN_PROGRESS: 50,
+  NOT_STARTED: 0,
+  OVERDUE: 75,
 };
 const STATUS_COLOR = {
-  COMPLETED: '#0284c7', IN_PROGRESS: '#0ea5e9', NOT_STARTED: '#94a3b8', OVERDUE: '#1d4ed8',
+  COMPLETED: "#16a34a",
+  IN_PROGRESS: "#f59e0b",
+  NOT_STARTED: "#94a3b8",
+  OVERDUE: "#e53935",
 };
 
 const STATUS_OPTIONS = [
-  { value: 'COMPLETED',   label: 'Hoàn thành',     color: '#0284c7' },
-  { value: 'IN_PROGRESS', label: 'Đang thực hiện', color: '#0ea5e9' },
-  { value: 'NOT_STARTED', label: 'Chưa bắt đầu',   color: '#64748b' },
-  { value: 'OVERDUE',     label: 'Quá hạn',        color: '#1d4ed8' },
+  { value: "COMPLETED", label: "Hoàn thành", color: "#16a34a" },
+  { value: "IN_PROGRESS", label: "Đang thực hiện", color: "#f59e0b" },
+  { value: "NOT_STARTED", label: "Chưa bắt đầu", color: "#64748b" },
+  { value: "OVERDUE", label: "Quá hạn", color: "#e53935" },
 ];
 
+/** Render the task detail drawer interface. */
 function TaskDetailDrawer({ task, open, onClose, onStatusChange, onEditTask }) {
   if (!task) return null;
 
   const totalAssignees = task.assignees?.length || 0;
-  const scoredCount = task.assignees?.filter((a) => a.leader_score != null).length || 0;
-  const avgScore = totalAssignees > 0
-    ? (task.assignees.reduce((s, a) => s + (a.final_score || 0), 0) / totalAssignees).toFixed(1)
-    : null;
+  const scoredCount =
+    task.assignees?.filter((a) => a.leader_score != null).length || 0;
+  const avgScore =
+    totalAssignees > 0
+      ? (
+          task.assignees.reduce((s, a) => s + (a.final_score || 0), 0) /
+          totalAssignees
+        ).toFixed(1)
+      : null;
 
   return (
     <Drawer
       title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <FileTextOutlined style={{ color: '#6366f1', fontSize: 18 }} />
-          <span style={{ fontWeight: 700, fontSize: 16 }}>Chi tiết nhiệm vụ</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <FileTextOutlined style={{ color: "#d31a1a", fontSize: 18 }} />
+          <span style={{ fontWeight: 700, fontSize: 16 }}>
+            Chi tiết nhiệm vụ
+          </span>
         </div>
       }
       open={open}
       onClose={onClose}
       width={520}
-      styles={{ body: { padding: '20px 24px' } }}
+      styles={{ body: { padding: "20px 24px" } }}
       extra={
         onEditTask && (
-          <Button type="primary" onClick={() => { onEditTask(task); onClose(); }}>
+          <Button
+            type="primary"
+            onClick={() => {
+              onEditTask(task);
+              onClose();
+            }}
+          >
             Sửa nhiệm vụ
           </Button>
         )
@@ -58,9 +93,14 @@ function TaskDetailDrawer({ task, open, onClose, onStatusChange, onEditTask }) {
     >
       {/* Tiêu đề nhiệm vụ */}
       <div style={{ marginBottom: 20 }}>
-        <Typography.Title level={4} style={{ margin: '0 0 6px' }}>{task.title}</Typography.Title>
+        <Typography.Title level={4} style={{ margin: "0 0 6px" }}>
+          {task.title}
+        </Typography.Title>
         {task.description && (
-          <Typography.Text type="secondary" style={{ fontSize: 14, lineHeight: 1.6 }}>
+          <Typography.Text
+            type="secondary"
+            style={{ fontSize: 14, lineHeight: 1.6 }}
+          >
             {task.description}
           </Typography.Text>
         )}
@@ -68,22 +108,41 @@ function TaskDetailDrawer({ task, open, onClose, onStatusChange, onEditTask }) {
 
       {/* Trạng thái + tiến độ */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 8,
+          }}
+        >
           <Select
             value={task.status}
             onChange={(newStatus) => onStatusChange?.(task.id, newStatus)}
             style={{ width: 150 }}
             options={STATUS_OPTIONS}
             optionRender={(option) => (
-              <span style={{ color: option.data.color, fontWeight: 500 }}>{option.data.label}</span>
+              <span style={{ color: option.data.color, fontWeight: 500 }}>
+                {option.data.label}
+              </span>
             )}
           />
           {task.priority && (
-            <Tag color={PRIORITY_COLOR[task.priority]} style={{ borderRadius: 20 }}>
+            <Tag
+              color={PRIORITY_COLOR[task.priority]}
+              style={{ borderRadius: 4 }}
+            >
               {PRIORITY_LABEL[task.priority]}
             </Tag>
           )}
-          <Tag style={{ borderRadius: 20, background: '#f0f0ff', color: '#6366f1', borderColor: '#c7d2fe' }}>
+          <Tag
+            style={{
+              borderRadius: 4,
+              background: "#fff7f6",
+              color: "#a80f16",
+              borderColor: "#ffd1ce",
+            }}
+          >
             Nhóm VB: {task.document_type}
           </Tag>
         </div>
@@ -96,70 +155,140 @@ function TaskDetailDrawer({ task, open, onClose, onStatusChange, onEditTask }) {
       </div>
 
       {/* Thông tin cơ bản */}
-      <Descriptions column={1} size="small" bordered style={{ marginBottom: 20 }}>
-        <Descriptions.Item label={<span><CalendarOutlined /> Hạn xử lý</span>}>
-          {task.deadline
-            ? <span style={{ fontWeight: 600, color: task.status === 'OVERDUE' ? '#dc2626' : 'inherit' }}>
-                {formatDate(task.deadline)}
-              </span>
-            : '—'}
+      <Descriptions
+        column={1}
+        size="small"
+        bordered
+        style={{ marginBottom: 20 }}
+      >
+        <Descriptions.Item
+          label={
+            <span>
+              <CalendarOutlined /> Hạn xử lý
+            </span>
+          }
+        >
+          {task.deadline ? (
+            <span
+              style={{
+                fontWeight: 600,
+                color: task.status === "OVERDUE" ? "#dc2626" : "inherit",
+              }}
+            >
+              {formatDate(task.deadline)}
+            </span>
+          ) : (
+            "—"
+          )}
         </Descriptions.Item>
-        <Descriptions.Item label={<span><TrophyOutlined /> Trọng số KPI</span>}>
-          <span style={{ fontWeight: 600 }}>{task.weight ?? '—'}</span>
+        <Descriptions.Item
+          label={
+            <span>
+              <TrophyOutlined /> Trọng số KPI
+            </span>
+          }
+        >
+          <span style={{ fontWeight: 600 }}>{task.weight ?? "—"}</span>
         </Descriptions.Item>
-        <Descriptions.Item label={<span><ClockCircleOutlined /> Tạo lúc</span>}>
+        <Descriptions.Item
+          label={
+            <span>
+              <ClockCircleOutlined /> Tạo lúc
+            </span>
+          }
+        >
           {formatDate(task.created_at)}
         </Descriptions.Item>
         <Descriptions.Item label="Minh chứng">
-          <Badge count={task.evidence_count || 0} showZero style={{ background: task.evidence_count > 0 ? '#6366f1' : '#94a3b8' }} />
+          <Badge
+            count={task.evidence_count || 0}
+            showZero
+            style={{
+              background: task.evidence_count > 0 ? "#d31a1a" : "#94a3b8",
+            }}
+          />
         </Descriptions.Item>
       </Descriptions>
 
       {/* Người thực hiện */}
       {task.assignees?.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <TeamOutlined style={{ color: '#6366f1' }} />
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: 14,
+              marginBottom: 10,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <TeamOutlined style={{ color: "#d31a1a" }} />
             Người thực hiện
-            <span style={{ fontWeight: 400, color: '#64748b', fontSize: 13 }}>
+            <span style={{ fontWeight: 400, color: "#64748b", fontSize: 13 }}>
               — {scoredCount}/{totalAssignees} đã chấm điểm
               {avgScore && ` · Điểm TB: ${avgScore}`}
             </span>
           </div>
-          <Space direction="vertical" style={{ width: '100%' }} size={8}>
+          <Space direction="vertical" style={{ width: "100%" }} size={8}>
             {task.assignees.map((a) => (
               <div
                 key={a.user_id}
                 style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '8px 12px', background: '#f8fafc', borderRadius: 10,
-                  border: '1px solid #f1f5f9',
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "8px 12px",
+                  background: "#f8fafc",
+                  borderRadius: 6,
+                  border: "1px solid #f1f5f9",
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Avatar size={32} icon={<UserOutlined />} style={{ background: '#e0e7ff', color: '#6366f1' }} />
-                  <span style={{ fontWeight: 600, fontSize: 14 }}>{a.full_name}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Avatar
+                    size={32}
+                    icon={<UserOutlined />}
+                    style={{ background: "#fff0ef", color: "#d31a1a" }}
+                  />
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>
+                    {a.full_name}
+                  </span>
                 </div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   {a.self_score != null && (
                     <Tooltip title="Tự chấm">
-                      <Tag color="blue" style={{ borderRadius: 20, margin: 0 }}>TC: {a.self_score}</Tag>
+                      <Tag color="blue" style={{ borderRadius: 4, margin: 0 }}>
+                        TC: {a.self_score}
+                      </Tag>
                     </Tooltip>
                   )}
                   {a.leader_score != null && (
                     <Tooltip title="Lãnh đạo chấm">
-                      <Tag color="gold" style={{ borderRadius: 20, margin: 0 }}>LĐ: {a.leader_score}</Tag>
+                      <Tag color="gold" style={{ borderRadius: 4, margin: 0 }}>
+                        LĐ: {a.leader_score}
+                      </Tag>
                     </Tooltip>
                   )}
                   {a.final_score != null && (
                     <Tooltip title="Điểm cuối">
-                      <Tag color="green" style={{ borderRadius: 20, margin: 0, fontWeight: 700 }}>
+                      <Tag
+                        color="green"
+                        style={{ borderRadius: 4, margin: 0, fontWeight: 700 }}
+                      >
                         ✓ {Number(a.final_score).toFixed(1)}
                       </Tag>
                     </Tooltip>
                   )}
                   {a.progress_percent != null && (
-                    <Tag style={{ borderRadius: 20, margin: 0, background: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0' }}>
+                    <Tag
+                      style={{
+                        borderRadius: 4,
+                        margin: 0,
+                        background: "#f0fdf4",
+                        color: "#16a34a",
+                        borderColor: "#bbf7d0",
+                      }}
+                    >
                       {a.progress_percent}%
                     </Tag>
                   )}
@@ -170,7 +299,9 @@ function TaskDetailDrawer({ task, open, onClose, onStatusChange, onEditTask }) {
         </div>
       )}
 
-      <Button block onClick={onClose} style={{ marginTop: 8 }}>Đóng</Button>
+      <Button block onClick={onClose} style={{ marginTop: 8 }}>
+        Đóng
+      </Button>
     </Drawer>
   );
 }
@@ -188,6 +319,7 @@ export default function TaskTable({
 }) {
   const [selected, setSelected] = useState(null);
 
+  /** Handle the status change. */
   const handleStatusChange = (taskId, newStatus) => {
     if (selected && selected.id === taskId) {
       setSelected({ ...selected, status: newStatus });
@@ -197,13 +329,23 @@ export default function TaskTable({
 
   const columns = [
     {
-      title: 'Nhiệm vụ',
-      dataIndex: 'title',
+      title: "Nhiệm vụ",
+      dataIndex: "title",
       render: (text, record) => (
         <div>
-          <div style={{ fontWeight: 600, color: '#1e293b' }}>{text}</div>
+          <div style={{ fontWeight: 600, color: "#1e293b" }}>{text}</div>
           {record.description && (
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
+            <div
+              style={{
+                fontSize: 12,
+                color: "#94a3b8",
+                marginTop: 2,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: 300,
+              }}
+            >
               {record.description}
             </div>
           )}
@@ -211,40 +353,69 @@ export default function TaskTable({
       ),
     },
     {
-      title: 'Trạng thái',
-      dataIndex: 'status',
+      title: "Trạng thái",
+      dataIndex: "status",
       width: 150,
       render: (value) => <StatusTag status={value} />,
     },
-    { title: 'Loại VB', dataIndex: 'document_type', width: 80, align: 'center' },
     {
-      title: 'Hạn xử lý',
-      dataIndex: 'deadline',
+      title: "Loại VB",
+      dataIndex: "document_type",
+      width: 80,
+      align: "center",
+    },
+    {
+      title: "Hạn xử lý",
+      dataIndex: "deadline",
       width: 120,
       render: (v, record) => (
-        <span style={{ color: record.status === 'OVERDUE' ? '#dc2626' : 'inherit', fontWeight: record.status === 'OVERDUE' ? 700 : 400 }}>
+        <span
+          style={{
+            color: record.status === "OVERDUE" ? "#dc2626" : "inherit",
+            fontWeight: record.status === "OVERDUE" ? 700 : 400,
+          }}
+        >
           {formatDate(v)}
         </span>
       ),
     },
     {
-      title: 'Người nhận',
+      title: "Người nhận",
       width: 130,
       render: (_, record) => {
         const count = record.assignees?.length || 0;
-        if (count === 0) return <span style={{ color: '#94a3b8' }}>—</span>;
+        if (count === 0) return <span style={{ color: "#94a3b8" }}>—</span>;
         return (
           <Avatar.Group maxCount={3} size={28}>
             {record.assignees.map((a) => (
               <Tooltip key={a.user_id} title={a.full_name}>
-                <Avatar size={28} icon={<UserOutlined />} style={{ background: '#e0e7ff', color: '#6366f1', fontSize: 12 }} />
+                <Avatar
+                  size={28}
+                  icon={<UserOutlined />}
+                  style={{
+                    background: "#fff0ef",
+                    color: "#d31a1a",
+                    fontSize: 12,
+                  }}
+                />
               </Tooltip>
             ))}
           </Avatar.Group>
         );
       },
     },
-    { title: 'Minh chứng', dataIndex: 'evidence_count', width: 100, align: 'center', render: (v) => v > 0 ? <Badge count={v} color="#6366f1" /> : <span style={{ color: '#94a3b8' }}>0</span> },
+    {
+      title: "Minh chứng",
+      dataIndex: "evidence_count",
+      width: 100,
+      align: "center",
+      render: (v) =>
+        v > 0 ? (
+          <Badge count={v} color="#d31a1a" />
+        ) : (
+          <span style={{ color: "#94a3b8" }}>0</span>
+        ),
+    },
   ];
 
   return (
@@ -258,10 +429,10 @@ export default function TaskTable({
         scroll={{ x: 700 }}
         onRow={(record) => ({
           onClick: () => setSelected(record),
-          style: { cursor: 'pointer' },
+          style: { cursor: "pointer" },
         })}
         rowClassName={(record) =>
-          selected?.id === record.id ? 'task-row--selected' : ''
+          selected?.id === record.id ? "task-row--selected" : ""
         }
       />
 

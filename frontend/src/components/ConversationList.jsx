@@ -1,9 +1,20 @@
-import { Empty } from 'antd';
-import ConversationItem from './ConversationItem';
+import { Empty } from "antd";
+import ConversationItem from "./ConversationItem";
 
-export default function ConversationList({ conversations, activeId, onSelect, onDelete }) {
+/** Render the conversation list interface. */
+export default function ConversationList({
+  conversations,
+  activeId,
+  onSelect,
+  onDelete,
+}) {
   if (!conversations.length) {
-    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có hội thoại" />;
+    return (
+      <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description="Chưa có hội thoại"
+      />
+    );
   }
 
   return (

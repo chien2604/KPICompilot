@@ -8,6 +8,8 @@ from db.database import Base
 
 
 class ChatLog(Base):
+    """Represent chat log data and behavior."""
+
     __tablename__ = "chat_logs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -20,13 +22,21 @@ class ChatLog(Base):
 
 
 class Conversation(Base):
+    """Represent conversation data and behavior."""
+
     __tablename__ = "conversations"
 
     conversation_id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
-    title: Mapped[str] = mapped_column(String(255), default="Cuộc hội thoại mới", nullable=False)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    title: Mapped[str] = mapped_column(
+        String(255), default="Cuộc hội thoại mới", nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
     is_deleted: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     messages: Mapped[list["ConversationMessage"]] = relationship(
@@ -42,10 +52,14 @@ class Conversation(Base):
 
 
 class ConversationMessage(Base):
+    """Represent conversation message data and behavior."""
+
     __tablename__ = "messages"
 
     message_id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.conversation_id", ondelete="CASCADE"), index=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("conversations.conversation_id", ondelete="CASCADE"), index=True
+    )
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     intent: Mapped[str | None] = mapped_column(String(80), nullable=True)
@@ -56,10 +70,17 @@ class ConversationMessage(Base):
 
 
 class ConversationSummary(Base):
+    """Represent conversation summary data and behavior."""
+
     __tablename__ = "conversation_summary"
 
-    conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.conversation_id", ondelete="CASCADE"), primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("conversations.conversation_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
     summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     conversation: Mapped[Conversation] = relationship(back_populates="summary")

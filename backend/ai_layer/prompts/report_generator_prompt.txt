@@ -36,7 +36,7 @@ QUY TẮC BẮT BUỘC
 
 ## 3. Nhiệm vụ chậm
 
-## 4. Cá nhân/phòng ban rủi ro
+## 4. Cá nhân/đơn vị rủi ro
 
 ## 5. Kiến nghị
 
@@ -106,7 +106,7 @@ Nếu không có nhiệm vụ chậm:
 
 ---
 
-## 4. Cá nhân/phòng ban rủi ro
+## 4. Cá nhân/đơn vị rủi ro
 
 Nếu dữ liệu có:
 
@@ -152,7 +152,7 @@ Báo cáo phải có đủ:
 
 ## 3. Nhiệm vụ chậm
 
-## 4. Cá nhân/phòng ban rủi ro
+## 4. Cá nhân/đơn vị rủi ro
 
 ## 5. Kiến nghị
 
@@ -178,7 +178,7 @@ Nếu thiếu bất kỳ mục nào thì phải bổ sung trước khi xuất k�
 
 ...
 
-## 4. Cá nhân/phòng ban rủi ro
+## 4. Cá nhân/đơn vị rủi ro
 
 ...
 

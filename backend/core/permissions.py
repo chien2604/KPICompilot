@@ -1,89 +1,70 @@
-"""Logic phân quyền: xác định ai được giao việc / chấm điểm cho ai.
+"""Centralize access and task-assignment rules for the commune organization."""
 
-Phân cấp:
-  Admin (level 0)          → toàn quyền, bypass mọi kiểm tra
-  Giám đốc (level 1)       → giao/chấm: Phó GĐ, Trưởng phòng
-  Phó giám đốc (level 2)  → giao/chấm: Trưởng phòng, Phó trưởng phòng
-  Trưởng phòng (level 3)  → giao/chấm: Phó phòng, Chuyên viên (trong phòng mình)
-  Phó phòng (level 4)     → giao/chấm: Chuyên viên (trong phòng mình)
-  Chuyên viên (level 5)   → không giao/chấm ai
-"""
+from core.organization import (
+    ADMIN_ROLE,
+    LEADERSHIP_ROLE,
+    SPECIALIST_ROLE,
+    UNIT_DEPUTY_ROLE,
+    UNIT_HEAD_ROLE,
+)
 from db.models.users import User
-
-# Mapping kpi_role_template → level ưu tiên
-_TEMPLATE_LEVEL: dict[str, int] = {
-    "BAN_GIAM_DOC": 1,          # dùng position_title để phân biệt GĐ vs Phó GĐ
-    "TRUONG_PHO_PHONG": 3,      # dùng position_title để phân biệt Trưởng vs Phó
-    "CONG_CHUC_KHONG_CHUC_VU": 5,
-}
-
-_POSITION_LEVEL: dict[str, int] = {
-    "Giám đốc": 1,
-    "Phó Giám đốc": 2,
-    "Chánh Văn phòng": 3,
-    "Trưởng phòng": 3,
-    "Trưởng phòng Chính sách Dân tộc": 3,
-    "Phó Chánh Văn phòng": 4,
-    "Phó Trưởng phòng": 4,
-    "Chuyên viên": 5,
-    "Kế toán": 5,
-    "Văn thư": 5,
-    "Nhân viên lái xe": 5,
-}
 
 
 def is_admin(user: User) -> bool:
-    """Kiểm tra user có role admin không (toàn quyền hệ thống)."""
-    return user.role == "admin"
+    """Return whether the account has system-wide administrator access."""
+
+    return user.role.lower() == ADMIN_ROLE
 
 
 def get_user_level(user: User) -> int:
-    """Trả về cấp bậc của user (0 = admin toàn quyền, 1 = GĐ cao nhất, 5 = thấp nhất)."""
-    if is_admin(user):
-        return 0
-    if user.position_title and user.position_title in _POSITION_LEVEL:
-        return _POSITION_LEVEL[user.position_title]
-    return _TEMPLATE_LEVEL.get(user.kpi_role_template, 5)
+    """Return the persisted hierarchy level, with zero reserved for administrators."""
+
+    return 0 if is_admin(user) else user.permission_level
+
+
+def can_view_user(viewer: User, target: User) -> bool:
+    """Apply organization-wide, unit, and personal personnel visibility."""
+
+    if is_admin(viewer) or viewer.id == target.id:
+        return True
+    if viewer.organization_role == LEADERSHIP_ROLE:
+        return True
+    if viewer.organization_role in {UNIT_HEAD_ROLE, UNIT_DEPUTY_ROLE}:
+        return viewer.department_id == target.department_id
+    return False
 
 
 def can_assign_to(assigner: User, target: User) -> bool:
-    """Kiểm tra assigner có quyền giao việc cho target không."""
-    # Không thể giao cho chính mình
+    """Enforce the confirmed two-level assignment hierarchy."""
+
     if assigner.id == target.id:
         return False
-
-    # Admin có thể giao cho tất cả mọi người
     if is_admin(assigner):
         return True
-
-    a_lvl = get_user_level(assigner)
-    t_lvl = get_user_level(target)
-
-    # Giám đốc (1): giao cho Phó GĐ (2) và Trưởng phòng (3)
-    if a_lvl == 1:
-        return t_lvl in (2, 3)
-
-    # Phó GĐ (2): giao cho Trưởng phòng (3) và Phó trưởng phòng (4)
-    if a_lvl == 2:
-        return t_lvl in (3, 4)
-
-    # Trưởng phòng (3): giao cho Phó phòng (4) và Chuyên viên (5) trong cùng phòng
-    if a_lvl == 3:
-        return t_lvl in (4, 5) and assigner.department_id == target.department_id
-
-    # Phó phòng (4): giao cho Chuyên viên (5) trong cùng phòng
-    if a_lvl == 4:
-        return t_lvl == 5 and assigner.department_id == target.department_id
-
+    if assigner.organization_role == LEADERSHIP_ROLE:
+        return target.organization_role == UNIT_HEAD_ROLE
+    if assigner.department_id is None or assigner.department_id != target.department_id:
+        return False
+    if assigner.organization_role == UNIT_HEAD_ROLE:
+        return target.organization_role in {UNIT_DEPUTY_ROLE, SPECIALIST_ROLE}
+    if assigner.organization_role == UNIT_DEPUTY_ROLE:
+        return target.organization_role == SPECIALIST_ROLE
     return False
 
 
 def can_score(scorer: User, target: User) -> bool:
-    """Kiểm tra scorer có quyền chấm điểm KPI cho target không."""
-    # Quyền chấm điểm giống quyền giao việc
-    return can_assign_to(scorer, target)
+    """Use the same reporting hierarchy for reviewer scoring permission."""
+
+    return is_admin(scorer) or can_assign_to(scorer, target)
 
 
 def get_assignable_users(assigner: User, all_users: list[User]) -> list[User]:
-    """Trả về danh sách user mà assigner có thể giao việc."""
-    return [u for u in all_users if can_assign_to(assigner, u)]
+    """Return active users to whom the current account may assign work."""
+
+    return [user for user in all_users if can_assign_to(assigner, user)]
+
+
+def can_manage_task(user: User, task_creator_id: int | None) -> bool:
+    """Allow administrators and the original assigner to edit or delete a task."""
+
+    return is_admin(user) or user.id == task_creator_id

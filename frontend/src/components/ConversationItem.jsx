@@ -1,10 +1,21 @@
-import { Button, Tooltip } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
+import { Button, Tooltip } from "antd";
+import { DeleteOutlined } from "@ant-design/icons";
 
-export default function ConversationItem({ conversation, active, onSelect, onDelete }) {
+/** Render the conversation item interface. */
+export default function ConversationItem({
+  conversation,
+  active,
+  onSelect,
+  onDelete,
+}) {
   return (
-    <div className={`conversation-item ${active ? 'conversation-item--active' : ''}`} onClick={() => onSelect(conversation.conversation_id)}>
-      <span className="conversation-item__title">{conversation.title || 'Cuộc hội thoại mới'}</span>
+    <div
+      className={`conversation-item ${active ? "conversation-item--active" : ""}`}
+      onClick={() => onSelect(conversation.conversation_id)}
+    >
+      <span className="conversation-item__title">
+        {conversation.title || "Cuộc hội thoại mới"}
+      </span>
       <Tooltip title="Xóa hội thoại">
         <Button
           type="text"

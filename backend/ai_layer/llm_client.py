@@ -1,55 +1,47 @@
 import json
+import logging
 from abc import ABC, abstractmethod
 
 from core.config import get_settings
 
+LOGGER = logging.getLogger(__name__)
+
 
 class BaseLLMClient(ABC):
+    """Define the text-completion interface used by the AI layer."""
+
     @abstractmethod
-    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
+    def complete(
+        self, prompt: str, system_prompt: str | None = None, expect_json: bool = False
+    ) -> str:
+        """Complete a prompt and optionally return a JSON object string."""
+
         raise NotImplementedError
 
 
-class MockLLMClient(BaseLLMClient):
-    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
+class UnavailableLLMClient(BaseLLMClient):
+    """Return explicit unavailable responses without fabricating business data."""
+
+    def complete(
+        self, prompt: str, system_prompt: str | None = None, expect_json: bool = False
+    ) -> str:
+        """Return a deterministic control response when no LLM provider is configured."""
+
         if "Tóm tắt câu hỏi dưới đây thành tiêu đề ngắn" in prompt:
             question = prompt.split("Câu hỏi:", 1)[-1].strip()
             words = question.replace("?", "").replace(".", "").split()
             return " ".join(words[:8]) or "Hội thoại KPI"
-        if "Tóm tắt hội thoại" in prompt or "summary" in prompt.lower():
-            return "Người dùng đang trao đổi về KPI, tiến độ nhiệm vụ và các rủi ro cần lãnh đạo theo dõi."
-        if "relevance_score" in prompt:
-            return json.dumps(
-                {
-                    "relevance_score": 82,
-                    "summary": "Minh chứng phù hợp với nhiệm vụ, thể hiện kết quả xử lý và có căn cứ tiến độ.",
-                    "checklist": ["Có nội dung liên quan nhiệm vụ", "Có dấu hiệu hoàn thành đầu việc chính"],
-                    "missing_points": ["Nên bổ sung ngày ban hành hoặc người phê duyệt nếu có"],
-                    "related_kpi_criteria": ["Hiệu quả thực hiện nhiệm vụ"],
-                    "recommendation": "Chấp nhận minh chứng cho đánh giá KPI PoC.",
-                },
-                ensure_ascii=False,
-            )
-        if "báo cáo giao ban" in prompt.lower():
-            # Trả về Markdown (có quốc hiệu tiêu ngữ), không phải HTML, vì `content`
-            # giờ được hiểu là Markdown thuần — xem services/report_service.py.
-            return (
-                "::: {custom-style=\"Centered\"}\n"
-                "**CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM**\n\n"
-                "**Độc lập - Tự do - Hạnh phúc**\n"
-                ":::\n\n"
-                "---\n\n"
-                "# BÁO CÁO GIAO BAN\n\n"
-                "## 1. Tình hình chung\n\n"
-                "- Tình hình chung ổn định, cần tập trung xử lý các nhiệm vụ quá hạn và nhóm cán bộ có KPI rủi ro.\n\n"
-                "## 5. Kiến nghị\n\n"
-                "1. Đôn đốc xử lý các nhiệm vụ quá hạn (dữ liệu mock demo khi chưa cấu hình LLM thật)."
-            )
-        return "Dựa trên dữ liệu hiện có, hệ thống ghi nhận một số nhiệm vụ chậm tiến độ và nhóm KPI rủi ro cần lãnh đạo theo dõi. Đây là phản hồi mock để demo khi chưa cấu hình LLM thật."
+        if expect_json or _expects_json(prompt, system_prompt):
+            return json.dumps({}, ensure_ascii=False)
+        return "Dịch vụ AI chưa được cấu hình hoặc đang không khả dụng. Hệ thống không tạo nội dung thay thế để tránh sai lệch dữ liệu."
 
 
 class OpenAILLMClient(BaseLLMClient):
+    """Call an OpenAI-compatible chat completion provider."""
+
     def __init__(self) -> None:
+        """Initialize the configured OpenAI-compatible client."""
+
         from openai import OpenAI
 
         settings = get_settings()
@@ -67,14 +59,10 @@ class OpenAILLMClient(BaseLLMClient):
             timeout=120.0,  # Tăng timeout của LLM lên 120 giây (2 phút)
         )
 
-    def complete(self, prompt: str, system_prompt: str | None = None, expect_json: bool = False) -> str:
-        import hashlib
-        cache_key = hashlib.md5(f"{prompt}||{system_prompt}".encode("utf-8")).hexdigest()
-        global _LLM_CACHE
-        if "_LLM_CACHE" not in globals():
-            _LLM_CACHE = {}
-        if cache_key in _LLM_CACHE:
-            return _LLM_CACHE[cache_key]
+    def complete(
+        self, prompt: str, system_prompt: str | None = None, expect_json: bool = False
+    ) -> str:
+        """Send one completion request and return its text content."""
 
         kwargs = {}
         if expect_json or _expects_json(prompt, system_prompt):
@@ -82,30 +70,50 @@ class OpenAILLMClient(BaseLLMClient):
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
-                {"role": "system", "content": system_prompt or "Bạn là trợ lý AI trả lời tiếng Việt."},
+                {
+                    "role": "system",
+                    "content": system_prompt or "Bạn là trợ lý AI trả lời tiếng Việt.",
+                },
                 {"role": "user", "content": prompt},
             ],
             temperature=0.0,
             seed=42,
             **kwargs,
         )
-        result = response.choices[0].message.content or ""
-        _LLM_CACHE[cache_key] = result
-        return result
+        return response.choices[0].message.content or ""
+
 
 def _expects_json(prompt: str, system_prompt: str | None) -> bool:
+    """Detect prompts that explicitly require a JSON response."""
+
     content = (prompt + " " + (system_prompt or "")).lower()
     # Tránh tự động nhận diện nhầm khi prompt chứa dữ liệu JSON dumps hoặc cấm hiển thị JSON
-    if "dữ liệu hệ thống" in content or "graph rag" in content or "không hiển thị json" in content:
+    if (
+        "dữ liệu hệ thống" in content
+        or "graph rag" in content
+        or "không hiển thị json" in content
+    ):
         return False
-    return any(x in content for x in ["trả về json", "định dạng json", "cấu trúc json", "format: json", "json_object", "return json"])
+    return any(
+        x in content
+        for x in [
+            "trả về json",
+            "định dạng json",
+            "cấu trúc json",
+            "format: json",
+            "json_object",
+            "return json",
+        ]
+    )
 
 
 def get_llm_client() -> BaseLLMClient:
+    """Build the configured LLM client or an explicit unavailable client."""
+
     settings = get_settings()
     if settings.openai_api_key:
         try:
             return OpenAILLMClient()
-        except Exception:
-            pass
-    return MockLLMClient()
+        except Exception as error:
+            LOGGER.warning("Không thể khởi tạo LLM provider: %s", error)
+    return UnavailableLLMClient()

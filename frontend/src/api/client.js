@@ -1,27 +1,27 @@
-import axios from 'axios';
+import axios from "axios";
 
 export const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
   timeout: 120000,
 });
 
-// Tự động gắn Authorization header từ localStorage
+// Attach the current access token to every API request.
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('kpi_access_token');
+  const token = localStorage.getItem("kpi_access_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-// 401 → xoá token + chuyển về login
+// Clear invalid sessions and return to login after an unauthorized response.
 apiClient.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('kpi_access_token');
-      localStorage.removeItem('kpi_user');
-      window.location.href = '/login';
+      localStorage.removeItem("kpi_access_token");
+      localStorage.removeItem("kpi_user");
+      window.location.href = "/login";
     }
     return Promise.reject(err);
   },

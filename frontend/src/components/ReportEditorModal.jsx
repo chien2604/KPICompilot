@@ -1,27 +1,29 @@
-import { Alert, Input, Modal, Space, Tabs, Typography, message } from 'antd';
-import { useEffect, useState } from 'react';
-import { marked } from 'marked';
+import { Alert, Input, Modal, Space, Tabs, Typography, message } from "antd";
+import { useEffect, useState } from "react";
+import { marked } from "marked";
 
 const { Text } = Typography;
 
+/** Render the report editor modal interface. */
 export default function ReportEditorModal({ open, report, onClose, onSave }) {
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (report) {
-      setContent(report.content || '');
+      setContent(report.content || "");
     }
   }, [report]);
 
+  /** Handle the save operation. */
   const save = async () => {
     setSaving(true);
     try {
       await onSave(content);
-      message.success('Đã lưu thay đổi báo cáo');
+      message.success("Đã lưu thay đổi báo cáo");
       onClose();
     } catch (error) {
-      message.error('Không lưu được thay đổi báo cáo');
+      message.error("Không lưu được thay đổi báo cáo");
     } finally {
       setSaving(false);
     }
@@ -37,7 +39,7 @@ export default function ReportEditorModal({ open, report, onClose, onSave }) {
       okText="Lưu thay đổi"
       okButtonProps={{ loading: saving }}
     >
-      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+      <Space direction="vertical" size={12} style={{ width: "100%" }}>
         <Alert
           type="info"
           showIcon
@@ -46,25 +48,36 @@ export default function ReportEditorModal({ open, report, onClose, onSave }) {
         <Tabs
           items={[
             {
-              key: 'edit',
-              label: 'Mã Markdown',
+              key: "edit",
+              label: "Mã Markdown",
               children: (
                 <Input.TextArea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   autoSize={{ minRows: 16, maxRows: 24 }}
-                  style={{ fontFamily: 'ui-monospace, monospace', fontSize: 13 }}
+                  style={{
+                    fontFamily: "ui-monospace, monospace",
+                    fontSize: 13,
+                  }}
                 />
               ),
             },
             {
-              key: 'preview',
-              label: 'Xem trước',
+              key: "preview",
+              label: "Xem trước",
               children: (
                 <div
                   className="report-content"
-                  style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, maxHeight: 480, overflowY: 'auto' }}
-                  dangerouslySetInnerHTML={{ __html: marked.parse(content || '') }}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 8,
+                    padding: 16,
+                    maxHeight: 480,
+                    overflowY: "auto",
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: marked.parse(content || ""),
+                  }}
                 />
               ),
             },

@@ -1,11 +1,12 @@
 """FastAPI dependencies cho authentication."""
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from core.security import decode_access_token
 from db.database import get_db
 from db.models.users import User
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
+
+from core.security import decode_access_token
 
 _bearer = HTTPBearer(auto_error=False)
 

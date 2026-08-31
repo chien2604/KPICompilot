@@ -1,22 +1,39 @@
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { Empty } from "antd";
 
-const demo = [
-  { month: '02', value: 78 },
-  { month: '03', value: 80 },
-  { month: '04', value: 81 },
-  { month: '05', value: 82 },
-  { month: '06', value: 82.6 },
-];
-
-export default function KpiTrendChart({ data = demo }) {
+/** Render KPI history returned by the backend without substituting demo values. */
+export default function KpiTrendChart({ data = [] }) {
+  if (!data.length) {
+    return (
+      <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description="Chưa có dữ liệu KPI"
+      />
+    );
+  }
   return (
     <ResponsiveContainer width="100%" height={240}>
       <AreaChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
+        <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
         <XAxis dataKey="month" />
         <YAxis domain={[50, 100]} />
         <Tooltip />
-        <Area type="monotone" dataKey="value" stroke="#0062ff" fill="#cce0ff" />
+        <Area
+          type="monotone"
+          dataKey="value"
+          stroke="#d31a1a"
+          fill="#ffe7a3"
+          fillOpacity={0.38}
+          strokeWidth={2}
+        />
       </AreaChart>
     </ResponsiveContainer>
   );

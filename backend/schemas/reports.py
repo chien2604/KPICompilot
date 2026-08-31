@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ReportGenerateIn(BaseModel):
+    """Validate report generation parameters."""
+
     report_type: str = "WEEKLY"
     period: str
     department_id: int | None = None
@@ -12,10 +14,13 @@ class ReportGenerateIn(BaseModel):
 
 class ReportContentUpdateIn(BaseModel):
     """Payload cho tính năng Edit báo cáo. Sửa trực tiếp toàn bộ Markdown."""
+
     content: str
 
 
 class ReportOut(BaseModel):
+    """Serialize a generated report."""
+
     id: int
     report_type: str
     period: str

@@ -1,9 +1,12 @@
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
+from pydantic import Field
 
 
 class KPIScoreOut(BaseModel):
+    """Represent k p i score out data and behavior."""
+
     id: int | None = None
     user_id: int
     period_month: str
@@ -19,6 +22,8 @@ class KPIScoreOut(BaseModel):
 
 
 class KPICriterionOut(BaseModel):
+    """Represent k p i criterion out data and behavior."""
+
     id: int
     template_id: int
     group_code: str
@@ -31,3 +36,10 @@ class KPICriterionOut(BaseModel):
     sort_order: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class KPIAssessmentInputUpdate(BaseModel):
+    """Validate manual inputs required by Decision 283 and Decree 335."""
+
+    common_scores: dict[str, float] = Field(default_factory=dict)
+    management_metrics: dict[str, float] = Field(default_factory=dict)

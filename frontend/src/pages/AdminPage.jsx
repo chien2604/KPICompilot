@@ -3,662 +3,550 @@ import {
   EditOutlined,
   KeyOutlined,
   LockOutlined,
-  PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
-  StopOutlined,
   UnlockOutlined,
-  UserAddOutlined,
-  ApiOutlined,
-  DeleteOutlined,
-} from '@ant-design/icons';
+} from "@ant-design/icons";
 import {
   Avatar,
-  Badge,
   Button,
+  Card,
   Col,
+  Drawer,
   Form,
   Input,
+  InputNumber,
   Modal,
   Row,
   Select,
   Space,
+  Statistic,
   Table,
   Tag,
   Tooltip,
   Typography,
   message,
-  Statistic,
-  Card,
-  Divider,
-  Popconfirm,
-} from 'antd';
-import { useEffect, useState } from 'react';
-import { adminApi } from '../api/adminApi';
+} from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { adminApi } from "../api/adminApi";
+import {
+  kpiTemplateLabel,
+  organizationRoleLabel,
+  roleLabel,
+} from "../utils/formatters";
 
-const { Title, Text } = Typography;
-const { Option } = Select;
+const { Text, Title } = Typography;
 
 const ROLE_OPTIONS = [
-  { value: 'staff', label: 'Nhân viên (Staff)' },
-  { value: 'admin', label: 'Quản trị viên (Admin)' },
+  { value: "user", label: "Người dùng" },
+  { value: "admin", label: "Quản trị viên" },
 ];
 
-// Cấp bậc (chức vụ) — user chỉ chọn cái này
-// Backend tự xử lí kpi_role_template dựa vào đây
-const POSITION_OPTIONS = [
-  // Cấp sở (level 1-2)
-  { value: 'Giám đốc', label: 'Giám đốc', group: 'Lãnh đạo Sở' },
-  { value: 'Phó Giám đốc', label: 'Phó Giám đốc', group: 'Lãnh đạo Sở' },
-  // Cấp phòng (level 3-4)
-  { value: 'Chánh Văn phòng', label: 'Chánh Văn phòng', group: 'Lãnh đạo phòng' },
-  { value: 'Phó Chánh Văn phòng', label: 'Phó Chánh Văn phòng', group: 'Lãnh đạo phòng' },
-  { value: 'Trưởng phòng', label: 'Trưởng phòng', group: 'Lãnh đạo phòng' },
-  { value: 'Trưởng phòng Chính sách Dân tộc', label: 'Trưởng phòng Chính sách Dân tộc', group: 'Lãnh đạo phòng' },
-  { value: 'Phó Trưởng phòng', label: 'Phó Trưởng phòng', group: 'Lãnh đạo phòng' },
-  // Công chức (level 5)
-  { value: 'Chuyên viên', label: 'Chuyên viên', group: 'Công chức' },
-  { value: 'Kế toán', label: 'Kế toán', group: 'Công chức' },
-  { value: 'Văn thư', label: 'Văn thư', group: 'Công chức' },
-  { value: 'Nhân viên lái xe', label: 'Nhân viên lái xe', group: 'Công chức' },
-];
-
-// Auto-map chức vụ → kpi_role_template (backend dùng)
-function getKpiTemplate(positionTitle) {
-  if (!positionTitle) return 'CONG_CHUC_KHONG_CHUC_VU';
-  const p = positionTitle.toLowerCase();
-  if (p.includes('giám đốc')) return 'BAN_GIAM_DOC';
-  if (p.includes('trưởng phòng') || p.includes('phó trưởng') || p.includes('chánh văn phòng') || p.includes('phó chánh')) return 'TRUONG_PHO_PHONG';
-  return 'CONG_CHUC_KHONG_CHUC_VU';
+/** Return commune unit options and omit the organization root. */
+function departmentOptions(departments) {
+  return departments
+    .filter((department) =>
+      ["LEADERSHIP", "UNIT"].includes(department.unit_type),
+    )
+    .map((department) => ({ label: department.name, value: department.id }));
 }
 
-const LEVEL_LABEL = {
-  0: { label: 'Admin', color: 'red' },
-  1: { label: 'Giám đốc', color: 'purple' },
-  2: { label: 'Phó GĐ', color: 'blue' },
-  3: { label: 'Trưởng phòng', color: 'cyan' },
-  4: { label: 'Phó phòng', color: 'green' },
-  5: { label: 'Chuyên viên', color: 'gold' },
-};
-
+/** Render the administrator account provisioning workspace. */
 export default function AdminPage() {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [positionTemplates, setPositionTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState(null);
-
-  // Modal states
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [resetPwdModalOpen, setResetPwdModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-
+  const [searchText, setSearchText] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [editForm] = Form.useForm();
-  const [createForm] = Form.useForm();
-  const [resetPwdForm] = Form.useForm();
+  const [passwordForm] = Form.useForm();
 
-  const fetchUsers = async () => {
+  /** Load personnel, organization unit, and permission template data. */
+  const loadData = async () => {
     setLoading(true);
     try {
-      const data = await adminApi.listUsers();
-      setUsers(data);
-    } catch {
-      message.error('Không thể tải danh sách người dùng.');
+      const [userData, departmentData, templateData] = await Promise.all([
+        adminApi.listUsers(),
+        adminApi.listDepartments(),
+        adminApi.listPositionTemplates(),
+      ]);
+      setUsers(userData);
+      setDepartments(departmentData);
+      setPositionTemplates(templateData);
+    } catch (error) {
+      message.error(
+        error.response?.data?.detail || "Không thể tải dữ liệu quản trị.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchDepartments = async () => {
-    try {
-      const data = await adminApi.listDepartments();
-      setDepartments(data);
-    } catch {
-      /* ignore */
-    }
-  };
-
   useEffect(() => {
-    fetchUsers();
-    fetchDepartments();
+    loadData();
   }, []);
 
-  // Thống kê
-  const stats = {
-    total: users.length,
-    active: users.filter((u) => u.is_active).length,
-    admins: users.filter((u) => u.is_admin).length,
-    inactive: users.filter((u) => !u.is_active).length,
+  const departmentOptionsList = useMemo(
+    () => departmentOptions(departments),
+    [departments],
+  );
+  const filteredUsers = useMemo(() => {
+    const normalizedSearch = searchText.trim().toLocaleLowerCase("vi");
+    return users.filter((user) => {
+      const searchableText = [
+        user.full_name,
+        user.email,
+        user.phone_number,
+        user.position_title,
+        user.department_name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("vi");
+      const matchesSearch =
+        !normalizedSearch || searchableText.includes(normalizedSearch);
+      const matchesDepartment =
+        !departmentFilter || user.department_id === departmentFilter;
+      return matchesSearch && matchesDepartment;
+    });
+  }, [departmentFilter, searchText, users]);
+
+  const personnelUsers = users.filter((user) => !user.is_admin);
+  const statistics = {
+    total: personnelUsers.length,
+    configured: personnelUsers.filter((user) => user.account_configured).length,
+    active: personnelUsers.filter((user) => user.is_active).length,
+    inactive: personnelUsers.filter((user) => !user.is_active).length,
   };
 
-  // Filter theo search & phòng ban
-  const filteredUsers = users.filter((u) => {
-    const matchSearch =
-      u.full_name?.toLowerCase().includes(searchText.toLowerCase()) ||
-      u.email?.toLowerCase().includes(searchText.toLowerCase()) ||
-      u.position_title?.toLowerCase().includes(searchText.toLowerCase()) ||
-      u.department_name?.toLowerCase().includes(searchText.toLowerCase());
-    const matchDept = selectedDepartmentFilter ? u.department_id === selectedDepartmentFilter : true;
-    return matchSearch && matchDept;
-  });
-
-  // Handlers
+  /** Open a personnel profile and account configuration form. */
   const openEditModal = (user) => {
     setSelectedUser(user);
-    editForm.setFieldsValue({
-      role: user.role,
-      position_title: user.position_title,
-      department_id: user.department_id,
-      is_active: user.is_active,
-    });
+    editForm.setFieldsValue({ ...user, password: undefined });
     setEditModalOpen(true);
   };
 
-  const openResetPwdModal = (user) => {
-    setSelectedUser(user);
-    resetPwdForm.resetFields();
-    setResetPwdModalOpen(true);
-  };
-
-  const handleEditSubmit = async (values) => {
+  /** Save account credentials, permission template, and personnel fields. */
+  const saveUser = async (values) => {
     setSubmitting(true);
     try {
-      // Tự động gán kpi_role_template dựa theo chức vụ
-      const payload = { ...values, kpi_role_template: getKpiTemplate(values.position_title) };
-      await adminApi.updateUserRole(selectedUser.id, payload);
-      message.success(`Đã cập nhật quyền cho ${selectedUser.full_name}`);
+      const payload = { ...values };
+      if (!payload.password) delete payload.password;
+      await adminApi.updateUser(selectedUser.id, payload);
+      message.success(`Đã cập nhật hồ sơ ${selectedUser.full_name}.`);
       setEditModalOpen(false);
-      fetchUsers();
-    } catch (err) {
-      message.error(err.response?.data?.detail || 'Cập nhật thất bại.');
+      await loadData();
+    } catch (error) {
+      message.error(
+        error.response?.data?.detail || "Không thể cập nhật hồ sơ.",
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleCreateSubmit = async (values) => {
-    setSubmitting(true);
-    try {
-      // Tự động gán kpi_role_template dựa theo chức vụ
-      const payload = { ...values, kpi_role_template: getKpiTemplate(values.position_title) };
-      await adminApi.createUser(payload);
-      message.success(`Đã tạo tài khoản cho ${values.full_name}`);
-      setCreateModalOpen(false);
-      createForm.resetFields();
-      fetchUsers();
-    } catch (err) {
-      message.error(err.response?.data?.detail || 'Tạo tài khoản thất bại.');
-    } finally {
-      setSubmitting(false);
-    }
+  /** Open the password reset form for an existing account. */
+  const openPasswordModal = (user) => {
+    setSelectedUser(user);
+    passwordForm.resetFields();
+    setPasswordModalOpen(true);
   };
-  const handleResetPassword = async (values) => {
+
+  /** Replace the selected account password. */
+  const resetPassword = async (values) => {
     setSubmitting(true);
     try {
       await adminApi.resetPassword(selectedUser.id, values.new_password);
-      message.success(`Đã đặt lại mật khẩu cho ${selectedUser.full_name}`);
-      setResetPwdModalOpen(false);
-    } catch (err) {
-      message.error(err.response?.data?.detail || 'Đặt lại mật khẩu thất bại.');
+      message.success(`Đã đặt lại mật khẩu cho ${selectedUser.full_name}.`);
+      setPasswordModalOpen(false);
+      await loadData();
+    } catch (error) {
+      message.error(
+        error.response?.data?.detail || "Không thể đặt lại mật khẩu.",
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleToggleActive = async (user) => {
+  /** Activate or deactivate a configured account. */
+  const toggleAccount = async (user) => {
     try {
-      if (user.is_active) {
-        await adminApi.deactivateUser(user.id);
-        message.success(`Đã vô hiệu hoá tài khoản ${user.full_name}`);
-      } else {
-        await adminApi.activateUser(user.id);
-        message.success(`Đã kích hoạt tài khoản ${user.full_name}`);
-      }
-      fetchUsers();
-    } catch (err) {
-      message.error(err.response?.data?.detail || 'Thao tác thất bại.');
-    }
-  };
-
-  const handleHardDelete = async (user) => {
-    try {
-      await adminApi.deleteUserHard(user.id);
-      message.success(`Đã xoá vĩnh viễn tài khoản ${user.full_name}`);
-      fetchUsers();
-    } catch (err) {
-      message.error(err.response?.data?.detail || 'Xoá tài khoản thất bại.');
+      if (user.is_active) await adminApi.deactivateUser(user.id);
+      else await adminApi.activateUser(user.id);
+      message.success(
+        user.is_active ? "Đã khóa tài khoản." : "Đã kích hoạt tài khoản.",
+      );
+      await loadData();
+    } catch (error) {
+      message.error(
+        error.response?.data?.detail ||
+          "Không thể thay đổi trạng thái tài khoản.",
+      );
     }
   };
 
   const columns = [
     {
-      title: 'Người dùng',
-      key: 'user',
-      fixed: 'left',
-      width: 220,
-      render: (_, record) => (
+      title: "Cán bộ",
+      key: "user",
+      width: 250,
+      render: (_, user) => (
         <Space>
-          <Badge dot status={record.is_active ? 'success' : 'error'} offset={[-2, 32]}>
-            <Avatar src={record.avatar_url} size={38} style={{ background: record.is_admin ? '#ff4d4f' : '#6366f1', flexShrink: 0 }}>
-              {record.full_name?.[0]}
-            </Avatar>
-          </Badge>
+          <Avatar src={user.avatar_url}>{user.full_name?.[0]}</Avatar>
           <div>
-            <div style={{ fontWeight: 600, fontSize: 13 }}>{record.full_name}</div>
-            <div style={{ fontSize: 11, color: '#999' }}>{record.email}</div>
+            <div style={{ fontWeight: 600 }}>{user.full_name}</div>
+            <Text type="secondary">{user.email || "Chưa cấu hình email"}</Text>
           </div>
         </Space>
       ),
     },
+    { title: "Đơn vị", dataIndex: "department_name", width: 190 },
     {
-      title: 'Chức vụ',
-      dataIndex: 'position_title',
-      key: 'position_title',
-      width: 160,
-      render: (v) => v || <Text type="secondary">—</Text>,
+      title: "Chức vụ",
+      dataIndex: "position_title",
+      width: 210,
+      render: (value, user) => (
+        <div>
+          <div>{value || "Chưa cập nhật"}</div>
+          <Text type="secondary">
+            {kpiTemplateLabel[user.kpi_role_template] || user.kpi_role_template}
+          </Text>
+        </div>
+      ),
     },
     {
-      title: 'Phòng ban',
-      dataIndex: 'department_name',
-      key: 'department_name',
-      width: 160,
-      render: (v) => v || <Text type="secondary">Không có</Text>,
+      title: "Vai trò",
+      dataIndex: "organization_role",
+      width: 190,
+      render: (value, user) => (
+        <Tag color={user.is_admin ? "red" : "blue"}>
+          {user.is_admin
+            ? roleLabel.admin
+            : organizationRoleLabel[value] || value}
+        </Tag>
+      ),
     },
     {
-      title: 'Cấp',
-      key: 'cap',
+      title: "Tài khoản",
+      key: "account",
       width: 150,
-      render: (_, record) => {
-        if (record.is_admin) {
-          return <Tag color="geekblue" style={{ borderColor: '#1d39c4' }}>Admin</Tag>;
-        }
-        const posOpt = POSITION_OPTIONS.find(p => p.value === record.position_title);
-        const capLabel = posOpt ? posOpt.group : 'Công chức';
-        
-        let color = 'cyan'; // Công chức
-        if (capLabel === 'Lãnh đạo Sở') color = 'blue';
-        else if (capLabel === 'Lãnh đạo phòng') color = 'processing';
-        
-        return <Tag color={color}>{capLabel}</Tag>;
-      },
+      render: (_, user) => (
+        <Space direction="vertical" size={2}>
+          <Tag color={user.account_configured ? "green" : "default"}>
+            {user.account_configured ? "Đã cấu hình" : "Chưa cấu hình"}
+          </Tag>
+          <Tag
+            color={user.is_active ? "processing" : "default"}
+            icon={user.is_active ? <CheckCircleOutlined /> : null}
+          >
+            {user.is_active ? "Đang hoạt động" : "Chưa kích hoạt"}
+          </Tag>
+        </Space>
+      ),
     },
     {
-      title: 'Trạng thái',
-      dataIndex: 'is_active',
-      key: 'is_active',
-      width: 110,
-      render: (active) =>
-        active ? (
-          <Tag color="blue" icon={<CheckCircleOutlined />}>Hoạt động</Tag>
-        ) : (
-          <Tag color="default" icon={<StopOutlined />}>Đã khoá</Tag>
-        ),
-    },
-    {
-      title: 'Thao tác',
-      key: 'actions',
-      fixed: 'right',
+      title: "Thao tác",
+      key: "actions",
       width: 140,
-      render: (_, record) => (
+      fixed: "right",
+      render: (_, user) => (
         <Space size={4}>
-          <Tooltip title="Phân quyền">
+          <Tooltip title="Cấu hình hồ sơ và tài khoản">
             <Button
-              id={`edit-role-btn-${record.id}`}
-              size="small"
               type="primary"
               icon={<EditOutlined />}
-              onClick={() => openEditModal(record)}
+              disabled={user.is_admin}
+              onClick={() => openEditModal(user)}
             />
           </Tooltip>
           <Tooltip title="Đặt lại mật khẩu">
             <Button
-              id={`reset-pwd-btn-${record.id}`}
-              size="small"
               icon={<KeyOutlined />}
-              onClick={() => openResetPwdModal(record)}
+              disabled={!user.email}
+              onClick={() => openPasswordModal(user)}
             />
           </Tooltip>
-          <Tooltip title={record.is_active ? 'Vô hiệu hoá' : 'Kích hoạt lại'}>
-            <Button
-              id={`toggle-active-btn-${record.id}`}
-              size="small"
-              danger={record.is_active}
-              type={record.is_active ? 'default' : 'primary'}
-              icon={record.is_active ? <LockOutlined /> : <UnlockOutlined />}
-              onClick={() => handleToggleActive(record)}
-            />
-          </Tooltip>
-          <Popconfirm
-            title="Xoá vĩnh viễn tài khoản?"
-            description="Thao tác này sẽ xoá toàn bộ dữ liệu liên quan và không thể khôi phục."
-            onConfirm={() => handleHardDelete(record)}
-            okText="Xoá"
-            cancelText="Huỷ"
-            okButtonProps={{ danger: true }}
+          <Tooltip
+            title={user.is_active ? "Khóa tài khoản" : "Kích hoạt tài khoản"}
           >
-            <Tooltip title="Xoá vĩnh viễn">
-              <Button
-                id={`delete-btn-${record.id}`}
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-              />
-            </Tooltip>
-          </Popconfirm>
+            <Button
+              danger={user.is_active}
+              disabled={user.is_admin}
+              icon={user.is_active ? <LockOutlined /> : <UnlockOutlined />}
+              onClick={() => toggleAccount(user)}
+            />
+          </Tooltip>
         </Space>
       ),
     },
   ];
 
   return (
-    <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+    <div className="page">
+      <div className="page-title-row">
         <div>
-          <Title level={3} style={{ margin: 0, color: '#002c8c', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <ApiOutlined style={{ color: '#1677ff' }} /> Quản trị hệ thống
+          <Title level={3} style={{ margin: 0 }}>
+            Quản trị tài khoản
           </Title>
-          <Text type="secondary" style={{ marginTop: 4, display: 'block' }}>Quản lý tài khoản và phân quyền hệ thống</Text>
+          <Text type="secondary">
+            Cấu hình đăng nhập trên danh sách cán bộ nhập từ XLS
+          </Text>
         </div>
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={fetchUsers} loading={loading}>
-            Làm mới
-          </Button>
-          <Button
-            id="create-user-btn"
-            type="primary"
-            icon={<UserAddOutlined />}
-            onClick={() => {
-              createForm.resetFields();
-              setCreateModalOpen(true);
-            }}
-            style={{ background: '#1677ff', borderColor: '#1677ff' }}
-          >
-            Thêm người dùng
-          </Button>
-        </Space>
+        <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>
+          Tải lại
+        </Button>
       </div>
 
-      {/* Thống kê */}
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={6}>
-          <Card bordered={false} style={{ background: 'linear-gradient(135deg, #0958d9 0%, #003eb3 100%)', borderRadius: 12, boxShadow: '0 4px 12px rgba(9, 88, 217, 0.15)' }}>
-            <Statistic title={<span style={{ color: 'rgba(255,255,255,0.7)' }}>Tổng người dùng</span>} value={stats.total} valueStyle={{ color: '#fff', fontWeight: 700 }} />
+      <Row gutter={[16, 16]} style={{ margin: "20px 0" }}>
+        <Col xs={12} lg={6}>
+          <Card className="admin-stat-card admin-stat-card--red">
+            <Statistic title="Tổng hồ sơ" value={statistics.total} />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card bordered={false} style={{ background: 'linear-gradient(135deg, #13c2c2 0%, #08979c 100%)', borderRadius: 12, boxShadow: '0 4px 12px rgba(19, 194, 194, 0.15)' }}>
-            <Statistic title={<span style={{ color: 'rgba(255,255,255,0.7)' }}>Đang hoạt động</span>} value={stats.active} valueStyle={{ color: '#fff', fontWeight: 700 }} />
+        <Col xs={12} lg={6}>
+          <Card className="admin-stat-card admin-stat-card--blue">
+            <Statistic title="Đã cấu hình" value={statistics.configured} />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card bordered={false} style={{ background: 'linear-gradient(135deg, #2f54eb 0%, #1d39c4 100%)', borderRadius: 12, boxShadow: '0 4px 12px rgba(47, 84, 235, 0.15)' }}>
-            <Statistic title={<span style={{ color: 'rgba(255,255,255,0.7)' }}>Quản trị viên</span>} value={stats.admins} valueStyle={{ color: '#fff', fontWeight: 700 }} />
+        <Col xs={12} lg={6}>
+          <Card className="admin-stat-card admin-stat-card--green">
+            <Statistic title="Đang hoạt động" value={statistics.active} />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card bordered={false} style={{ background: 'linear-gradient(135deg, #595959 0%, #434343 100%)', borderRadius: 12, boxShadow: '0 4px 12px rgba(89, 89, 89, 0.15)' }}>
-            <Statistic title={<span style={{ color: 'rgba(255,255,255,0.7)' }}>Đã khoá</span>} value={stats.inactive} valueStyle={{ color: '#fff', fontWeight: 700 }} />
+        <Col xs={12} lg={6}>
+          <Card className="admin-stat-card admin-stat-card--orange">
+            <Statistic title="Chưa kích hoạt" value={statistics.inactive} />
           </Card>
         </Col>
       </Row>
 
-      {/* Search + Table */}
-      <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-        <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+      <Card className="admin-table-card">
+        <Space wrap className="admin-filter-bar">
           <Input
-            id="admin-search-input"
-            placeholder="Tìm kiếm theo tên, email, chức vụ, phòng ban..."
-            prefix={<SearchOutlined style={{ color: '#bbb' }} />}
+            prefix={<SearchOutlined />}
+            placeholder="Tìm theo tên, email, số điện thoại, chức vụ"
             value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            style={{ maxWidth: 400, borderRadius: 8 }}
+            onChange={(event) => setSearchText(event.target.value)}
             allowClear
+            style={{ width: 360 }}
           />
           <Select
-            id="admin-dept-filter"
-            placeholder="Lọc theo phòng ban"
+            placeholder="Lọc theo đơn vị"
+            options={departmentOptionsList}
+            value={departmentFilter}
+            onChange={setDepartmentFilter}
             allowClear
-            value={selectedDepartmentFilter}
-            onChange={(val) => setSelectedDepartmentFilter(val)}
-            style={{ minWidth: 250 }}
-            options={departments.map(d => ({ label: d.name, value: d.id }))}
+            style={{ width: 220 }}
           />
-        </div>
+        </Space>
         <Table
-          id="admin-users-table"
           dataSource={filteredUsers}
           columns={columns}
           rowKey="id"
           loading={loading}
-          size="small"
-          scroll={{ x: 900 }}
-          pagination={{ pageSize: 15, showSizeChanger: false }}
-          rowClassName={(record) => (!record.is_active ? 'admin-row-inactive' : '')}
+          scroll={{ x: 1050 }}
+          pagination={{ pageSize: 15 }}
         />
-      </div>
+      </Card>
 
-      {/* Modal Phân quyền */}
-      <Modal
-        title={
-          <Space>
-            <EditOutlined style={{ color: '#6366f1' }} />
-            <span>Phân quyền — {selectedUser?.full_name}</span>
-          </Space>
-        }
+      <Drawer
+        title={`Cấu hình hồ sơ - ${selectedUser?.full_name || ""}`}
         open={editModalOpen}
-        onCancel={() => setEditModalOpen(false)}
-        footer={null}
-        destroyOnClose
-        width={520}
+        onClose={() => setEditModalOpen(false)}
+        width={620}
+        destroyOnHidden
       >
-        <Form form={editForm} layout="vertical" onFinish={handleEditSubmit} style={{ marginTop: 16 }}>
-          <Form.Item name="role" label="Loại tài khoản" rules={[{ required: true }]}>
-            <Select id="edit-role-select" placeholder="Chọn loại tài khoản">
-              {ROLE_OPTIONS.map((o) => (
-                <Option key={o.value} value={o.value}>{o.label}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item name="position_title" label="Chức vụ (quyết định Cấp bậc & Nhóm KPI)">
-            <Select id="edit-position-select" placeholder="Chọn chức vụ" showSearch allowClear>
-              {POSITION_OPTIONS.reduce((groups, item) => {
-                const group = groups.find(g => g.label === item.group);
-                if (group) group.options.push(item);
-                else groups.push({ label: item.group, options: [item] });
-                return groups;
-              }, []).map(group => (
-                <Select.OptGroup key={group.label} label={group.label}>
-                  {group.options.map(opt => (
-                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-                  ))}
-                </Select.OptGroup>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item name="department_id" label="Phòng ban">
-            <Select id="edit-dept-select" placeholder="Chọn phòng ban" allowClear>
-              {departments.map((d) => (
-                <Option key={d.id} value={d.id}>{d.name}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item name="is_active" label="Trạng thái tài khoản">
-            <Select id="edit-active-select">
-              <Option value={true}>✅ Đang hoạt động</Option>
-              <Option value={false}>🔒 Vô hiệu hoá</Option>
-            </Select>
-          </Form.Item>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-            <Button onClick={() => setEditModalOpen(false)}>Huỷ</Button>
-            <Button type="primary" htmlType="submit" loading={submitting} style={{ background: '#6366f1' }}>
-              Lưu thay đổi
-            </Button>
-          </div>
-        </Form>
-      </Modal>
-
-      {/* Modal Tạo người dùng mới */}
-      <Modal
-        title={
-          <Space>
-            <UserAddOutlined style={{ color: '#6366f1' }} />
-            <span>Thêm người dùng mới</span>
-          </Space>
-        }
-        open={createModalOpen}
-        onCancel={() => setCreateModalOpen(false)}
-        footer={null}
-        destroyOnClose
-        width={580}
-      >
-        <Form form={createForm} layout="vertical" onFinish={handleCreateSubmit} style={{ marginTop: 16 }}>
-          <Row gutter={12}>
-            <Col span={14}>
+        <Form form={editForm} layout="vertical" onFinish={saveUser}>
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
               <Form.Item
-                name="full_name"
-                label="Họ và tên"
-                rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}
+                name="email"
+                label="Email đăng nhập"
+                rules={[{ type: "email", message: "Email không hợp lệ" }]}
               >
-                <Input id="create-fullname-input" placeholder="Nguyễn Văn A" />
+                <Input placeholder="canbo@nghialam.gov.vn" />
               </Form.Item>
             </Col>
-            <Col span={10}>
-              <Form.Item name="role" label="Loại tài khoản" initialValue="staff">
-                <Select id="create-role-select">
-                  {ROLE_OPTIONS.map((o) => (
-                    <Option key={o.value} value={o.value}>{o.label}</Option>
-                  ))}
-                </Select>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="password"
+                label={
+                  selectedUser?.account_configured
+                    ? "Mật khẩu mới (không bắt buộc)"
+                    : "Mật khẩu khởi tạo"
+                }
+                rules={[
+                  { min: 8, message: "Mật khẩu phải có tối thiểu 8 ký tự" },
+                ]}
+              >
+                <Input.Password placeholder="Tối thiểu 8 ký tự" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="role"
+                label="Vai trò hệ thống"
+                rules={[{ required: true }]}
+              >
+                <Select options={ROLE_OPTIONS} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="is_active"
+                label="Trạng thái tài khoản"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  options={[
+                    { value: true, label: "Kích hoạt" },
+                    { value: false, label: "Chưa kích hoạt" },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="department_id"
+                label="Đơn vị công tác"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  options={departmentOptionsList}
+                  showSearch
+                  optionFilterProp="label"
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="kpi_role_template"
+                label="Nhóm chức vụ và phân quyền"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  options={positionTemplates.map((template) => ({
+                    value: template.code,
+                    label: template.name,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="position_title"
+                label="Chức vụ ghi trong hồ sơ"
+                rules={[{ required: true }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="phone_number"
+                label="Số điện thoại"
+                rules={[
+                  {
+                    pattern: /^\d{10}$/,
+                    message: "Số điện thoại gồm 10 chữ số",
+                  },
+                ]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="birth_year" label="Năm sinh">
+                <InputNumber min={1900} max={2100} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="ethnicity" label="Dân tộc">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="party_joined_date" label="Ngày vào Đảng">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="general_education" label="Giáo dục phổ thông">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="professional_qualification" label="Chuyên môn">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="political_theory" label="Lý luận chính trị">
+                <Input />
               </Form.Item>
             </Col>
           </Row>
-
-          <Form.Item
-            name="email"
-            label="Email đăng nhập"
-            rules={[
-              { required: true, message: 'Vui lòng nhập email' },
-              { type: 'email', message: 'Email không hợp lệ' },
-            ]}
-          >
-            <Input id="create-email-input" placeholder="example@gov.vn" />
-          </Form.Item>
-
-          <Form.Item
-            name="password"
-            label="Mật khẩu khởi tạo"
-            rules={[
-              { required: true, message: 'Vui lòng nhập mật khẩu' },
-              { min: 6, message: 'Mật khẩu phải từ 6 ký tự trở lên' },
-            ]}
-          >
-            <Input.Password id="create-password-input" placeholder="Tối thiểu 6 ký tự" />
-          </Form.Item>
-
-          <Divider style={{ margin: '8px 0 16px' }}>Thông tin công việc</Divider>
-
-          <Form.Item name="position_title" label="Chức vụ (quyết định Cấp bậc & Nhóm KPI)">
-            <Select id="create-position-select" placeholder="Chọn chức vụ" showSearch allowClear>
-              {POSITION_OPTIONS.reduce((groups, item) => {
-                const group = groups.find(g => g.label === item.group);
-                if (group) group.options.push(item);
-                else groups.push({ label: item.group, options: [item] });
-                return groups;
-              }, []).map(group => (
-                <Select.OptGroup key={group.label} label={group.label}>
-                  {group.options.map(opt => (
-                    <Option key={opt.value} value={opt.value}>{opt.label}</Option>
-                  ))}
-                </Select.OptGroup>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item name="department_id" label="Phòng ban">
-            <Select id="create-dept-select" placeholder="Chọn phòng ban" allowClear>
-              {departments.map((d) => (
-                <Option key={d.id} value={d.id}>{d.name}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-            <Button onClick={() => setCreateModalOpen(false)}>Huỷ</Button>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={submitting}
-              icon={<PlusOutlined />}
-              style={{ background: '#6366f1' }}
-            >
-              Tạo tài khoản
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <Button onClick={() => setEditModalOpen(false)}>Hủy</Button>
+            <Button type="primary" htmlType="submit" loading={submitting}>
+              Lưu cấu hình
             </Button>
           </div>
         </Form>
-      </Modal>
+      </Drawer>
 
-      {/* Modal Đặt lại mật khẩu */}
       <Modal
-        title={
-          <Space>
-            <KeyOutlined style={{ color: '#faad14' }} />
-            <span>Đặt lại mật khẩu — {selectedUser?.full_name}</span>
-          </Space>
-        }
-        open={resetPwdModalOpen}
-        onCancel={() => setResetPwdModalOpen(false)}
+        title={`Đặt lại mật khẩu - ${selectedUser?.full_name || ""}`}
+        open={passwordModalOpen}
+        onCancel={() => setPasswordModalOpen(false)}
         footer={null}
-        destroyOnClose
-        width={400}
+        destroyOnHidden
       >
-        <Form form={resetPwdForm} layout="vertical" onFinish={handleResetPassword} style={{ marginTop: 16 }}>
+        <Form form={passwordForm} layout="vertical" onFinish={resetPassword}>
           <Form.Item
             name="new_password"
             label="Mật khẩu mới"
             rules={[
-              { required: true, message: 'Vui lòng nhập mật khẩu mới' },
-              { min: 6, message: 'Mật khẩu phải từ 6 ký tự trở lên' },
+              {
+                required: true,
+                min: 8,
+                message: "Nhập mật khẩu tối thiểu 8 ký tự",
+              },
             ]}
           >
-            <Input.Password id="reset-password-input" placeholder="Tối thiểu 6 ký tự" />
+            <Input.Password />
           </Form.Item>
           <Form.Item
             name="confirm_password"
             label="Xác nhận mật khẩu"
-            dependencies={['new_password']}
+            dependencies={["new_password"]}
             rules={[
-              { required: true, message: 'Vui lòng xác nhận mật khẩu' },
+              { required: true },
               ({ getFieldValue }) => ({
                 validator(_, value) {
-                  if (!value || getFieldValue('new_password') === value) return Promise.resolve();
-                  return Promise.reject(new Error('Mật khẩu xác nhận không khớp!'));
+                  return !value || getFieldValue("new_password") === value
+                    ? Promise.resolve()
+                    : Promise.reject(new Error("Mật khẩu xác nhận không khớp"));
                 },
               }),
             ]}
           >
-            <Input.Password id="reset-confirm-password-input" placeholder="Nhập lại mật khẩu mới" />
+            <Input.Password />
           </Form.Item>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-            <Button onClick={() => setResetPwdModalOpen(false)}>Huỷ</Button>
-            <Button type="primary" htmlType="submit" loading={submitting} danger>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <Button onClick={() => setPasswordModalOpen(false)}>Hủy</Button>
+            <Button type="primary" htmlType="submit" loading={submitting}>
               Đặt lại mật khẩu
             </Button>
           </div>
         </Form>
       </Modal>
-
-      <style>{`
-        .admin-row-inactive td {
-          opacity: 0.5;
-        }
-      `}</style>
     </div>
   );
 }

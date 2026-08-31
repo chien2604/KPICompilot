@@ -1,12 +1,20 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { authApi } from '../api/authApi';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { authApi } from "../api/authApi";
 
 const AuthContext = createContext(null);
 
-const TOKEN_KEY = 'kpi_access_token';
-const USER_KEY = 'kpi_user';
+const TOKEN_KEY = "kpi_access_token";
+const USER_KEY = "kpi_user";
 
 export function AuthProvider({ children }) {
+  /** Restore the locally cached identity while the token is validated. */
   const [user, setUser] = useState(() => {
     try {
       const raw = localStorage.getItem(USER_KEY);
@@ -17,7 +25,6 @@ export function AuthProvider({ children }) {
   });
   const [loading, setLoading] = useState(true);
 
-  // Kiểm tra token còn hợp lệ khi load app
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) {
@@ -40,17 +47,17 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
+  /** Authenticate and persist the current account for page reloads. */
   const login = useCallback(async (email, password) => {
     const data = await authApi.login(email, password);
     const { access_token, ...userInfo } = data;
     localStorage.setItem(TOKEN_KEY, access_token);
     localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
-    // Xoá selected_user_id cũ nếu có
-    localStorage.setItem('selected_user_id', String(userInfo.user_id));
     setUser(userInfo);
     return userInfo;
   }, []);
 
+  /** Clear the current browser session. */
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
@@ -73,7 +80,9 @@ export function AuthProvider({ children }) {
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth phải được dùng trong AuthProvider');
-  return ctx;
+  /** Return the authenticated application context. */
+  const authContext = useContext(AuthContext);
+  if (!authContext)
+    throw new Error("useAuth phải được dùng trong AuthProvider");
+  return authContext;
 }

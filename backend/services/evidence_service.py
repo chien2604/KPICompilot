@@ -1,22 +1,30 @@
 import json
 
-from fastapi import UploadFile
-from sqlalchemy.orm import Session
-
 from ai_layer.evidence_analyzer import EvidenceAnalyzer
 from ai_layer.rag.graph_rag_service import GraphRAGService
 from db.models.evidences import TaskEvidence
 from db.models.tasks import Task
 from db.models.users import User
+from fastapi import UploadFile
+from sqlalchemy.orm import Session
+
 from services.file_storage import FileStorage
 
 
 class EvidenceService:
+    """Represent evidence service data and behavior."""
+
     def __init__(self, db: Session) -> None:
+        """Initialize the evidence service."""
+
         self.db = db
         self.storage = FileStorage()
 
-    def upload_and_process(self, task_id: int, uploaded_by: int, file: UploadFile) -> TaskEvidence:
+    def upload_and_process(
+        self, task_id: int, uploaded_by: int, file: UploadFile
+    ) -> TaskEvidence:
+        """Upload the and process."""
+
         file_name, file_path = self.storage.save_upload(file)
         evidence = TaskEvidence(
             task_id=task_id,
@@ -34,8 +42,14 @@ class EvidenceService:
             task = self.db.get(Task, task_id)
             user = self.db.get(User, uploaded_by)
             uploader_name = user.full_name if user else "(không rõ)"
-            department_name = user.department.name if user and user.department else "(không rõ)"
-            task_deadline = task.deadline.strftime("%d/%m/%Y") if task and task.deadline else "(chưa đặt)"
+            department_name = (
+                user.department.name if user and user.department else "(không rõ)"
+            )
+            task_deadline = (
+                task.deadline.strftime("%d/%m/%Y")
+                if task and task.deadline
+                else "(chưa đặt)"
+            )
 
             analysis = EvidenceAnalyzer().analyze(
                 task_title=task.title if task else "",
@@ -49,14 +63,18 @@ class EvidenceService:
             )
             evidence.ai_relevance_score = float(analysis.get("relevance_score") or 0)
             evidence.ai_summary = analysis.get("summary")
-            evidence.ai_missing_points = json.dumps({
-                "checklist": analysis.get("checklist", []),
-                "strengths": analysis.get("strengths", []),
-                "weaknesses": analysis.get("weaknesses", [])
-            }, ensure_ascii=False)
+            evidence.ai_missing_points = json.dumps(
+                {
+                    "checklist": analysis.get("checklist", []),
+                    "strengths": analysis.get("strengths", []),
+                    "weaknesses": analysis.get("weaknesses", []),
+                },
+                ensure_ascii=False,
+            )
             evidence.status = "ANALYZED"
         except Exception as exc:
             import traceback
+
             traceback.print_exc()
             self.db.rollback()
             # Mất transaction nên phải tạo lại evidence
@@ -67,26 +85,34 @@ class EvidenceService:
                 file_type=file.content_type,
                 file_path=file_path,
                 status="FAILED",
-                ai_summary=f"Lỗi hệ thống: {exc}"
+                ai_summary=f"Lỗi hệ thống: {exc}",
             )
             self.db.add(new_evidence)
             self.db.commit()
             self.db.refresh(new_evidence)
             return new_evidence
-            
+
         self.db.commit()
         self.db.refresh(evidence)
         return evidence
 
     def analyze(self, evidence_id: int) -> TaskEvidence:
+        """Analyze the operation."""
+
         evidence = self.db.get(TaskEvidence, evidence_id)
         if not evidence:
             raise ValueError("Không tìm thấy minh chứng")
         task = self.db.get(Task, evidence.task_id)
         user = self.db.get(User, evidence.uploaded_by)
         uploader_name = user.full_name if user else "(không rõ)"
-        department_name = user.department.name if user and user.department else "(không rõ)"
-        task_deadline = task.deadline.strftime("%d/%m/%Y") if task and task.deadline else "(chưa đặt)"
+        department_name = (
+            user.department.name if user and user.department else "(không rõ)"
+        )
+        task_deadline = (
+            task.deadline.strftime("%d/%m/%Y")
+            if task and task.deadline
+            else "(chưa đặt)"
+        )
 
         analysis = EvidenceAnalyzer().analyze(
             task_title=task.title if task else "",
@@ -100,11 +126,14 @@ class EvidenceService:
         )
         evidence.ai_relevance_score = float(analysis.get("relevance_score") or 0)
         evidence.ai_summary = analysis.get("summary")
-        evidence.ai_missing_points = json.dumps({
-            "checklist": analysis.get("checklist", []),
-            "strengths": analysis.get("strengths", []),
-            "weaknesses": analysis.get("weaknesses", [])
-        }, ensure_ascii=False)
+        evidence.ai_missing_points = json.dumps(
+            {
+                "checklist": analysis.get("checklist", []),
+                "strengths": analysis.get("strengths", []),
+                "weaknesses": analysis.get("weaknesses", []),
+            },
+            ensure_ascii=False,
+        )
         evidence.status = "ANALYZED"
         self.db.commit()
         self.db.refresh(evidence)

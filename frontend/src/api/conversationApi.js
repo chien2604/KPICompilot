@@ -1,8 +1,11 @@
-import { apiClient } from './client';
+import { apiClient } from "./client";
 
 export const conversationApi = {
-  create: (payload) => apiClient.post('/conversations', payload).then((res) => res.data),
-  list: (params) => apiClient.get('/conversations', { params }).then((res) => res.data),
-  get: (id, params) => apiClient.get(`/conversations/${id}`, { params }).then((res) => res.data),
-  remove: (id, params) => apiClient.delete(`/conversations/${id}`, { params }).then((res) => res.data),
+  create: (payload = {}) =>
+    apiClient.post("/conversations", payload).then((response) => response.data),
+  list: () => apiClient.get("/conversations").then((response) => response.data),
+  get: (id) =>
+    apiClient.get(`/conversations/${id}`).then((response) => response.data),
+  remove: (id) =>
+    apiClient.delete(`/conversations/${id}`).then((response) => response.data),
 };

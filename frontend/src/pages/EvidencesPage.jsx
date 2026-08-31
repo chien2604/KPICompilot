@@ -1,24 +1,42 @@
-import { Button, Card, Form, Select, Space, Tag, Typography, Upload, message } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
-import { useEffect, useMemo, useState } from 'react';
-import { evidenceApi } from '../api/evidenceApi';
-import { taskApi } from '../api/taskApi';
-import { useAuth } from '../contexts/AuthContext';
-import EvidenceTable from '../components/EvidenceTable';
+import {
+  Button,
+  Card,
+  Col,
+  Form,
+  Row,
+  Select,
+  Space,
+  Tag,
+  Typography,
+  Upload,
+  message,
+} from "antd";
+import {
+  CloudUploadOutlined,
+  FileProtectOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
+import { useEffect, useMemo, useState } from "react";
+import { evidenceApi } from "../api/evidenceApi";
+import { taskApi } from "../api/taskApi";
+import { useAuth } from "../contexts/AuthContext";
+import EvidenceTable from "../components/EvidenceTable";
 
+/** Render the evidences page interface. */
 export default function EvidencesPage() {
   const { user } = useAuth();
   const myId = user?.user_id;
-  const canAssign = user?.level <= 4;
+  const canAssign = user?.is_admin || user?.level <= 2;
 
-  const [evidences, setEvidences]     = useState([]);
-  const [myTasks, setMyTasks]         = useState([]);   // task được giao cho mình
+  const [evidences, setEvidences] = useState([]);
+  const [myTasks, setMyTasks] = useState([]); // task được giao cho mình
   const [assignedTasks, setAssignedTasks] = useState([]); // task mình đã giao
-  const [file, setFile]               = useState(null);
-  const [uploading, setUploading]     = useState(false);
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
-  const [form]                        = Form.useForm();
+  const [form] = Form.useForm();
 
+  /** Load the all. */
   const loadAll = () => {
     if (!myId) return;
     setTableLoading(true);
@@ -38,7 +56,9 @@ export default function EvidencesPage() {
       .finally(() => setTableLoading(false));
   };
 
-  useEffect(() => { loadAll(); }, [myId]);
+  useEffect(() => {
+    loadAll();
+  }, [myId]);
 
   // Gộp task + gắn nhãn, loại trùng id
   const allTaskOptions = useMemo(() => {
@@ -48,14 +68,22 @@ export default function EvidencesPage() {
     myTasks.forEach((t) => {
       if (!seen.has(t.id)) {
         seen.add(t.id);
-        opts.push({ value: t.id, label: `[Phụ trách] ${t.id} – ${t.title}`, group: 'mine' });
+        opts.push({
+          value: t.id,
+          label: `[Phụ trách] ${t.id} – ${t.title}`,
+          group: "mine",
+        });
       }
     });
 
     assignedTasks.forEach((t) => {
       if (!seen.has(t.id)) {
         seen.add(t.id);
-        opts.push({ value: t.id, label: `[Đã giao] ${t.id} – ${t.title}`, group: 'assigned' });
+        opts.push({
+          value: t.id,
+          label: `[Đã giao] ${t.id} – ${t.title}`,
+          group: "assigned",
+        });
       }
     });
 
@@ -65,29 +93,39 @@ export default function EvidencesPage() {
   // Nhóm theo "Phụ trách" / "Đã giao"
   const taskSelectOptions = useMemo(() => {
     const groups = [];
-    const mine = allTaskOptions.filter((o) => o.group === 'mine');
-    const assigned = allTaskOptions.filter((o) => o.group === 'assigned');
-    if (mine.length) groups.push({ label: 'Nhiệm vụ phụ trách', options: mine });
-    if (assigned.length) groups.push({ label: 'Nhiệm vụ đã giao', options: assigned });
+    const mine = allTaskOptions.filter((o) => o.group === "mine");
+    const assigned = allTaskOptions.filter((o) => o.group === "assigned");
+    if (mine.length)
+      groups.push({ label: "Nhiệm vụ phụ trách", options: mine });
+    if (assigned.length)
+      groups.push({ label: "Nhiệm vụ đã giao", options: assigned });
     return groups;
   }, [allTaskOptions]);
 
+  /** Handle the upload operation. */
   const upload = async () => {
     let values;
-    try { values = await form.validateFields(); }
-    catch { return; }
-    if (!file) return message.warning('Chọn file minh chứng');
+    try {
+      values = await form.validateFields();
+    } catch {
+      return;
+    }
+    if (!file) return message.warning("Chọn file minh chứng");
 
     setUploading(true);
     try {
-      await evidenceApi.upload({ task_id: values.task_id, uploaded_by: myId, file });
-      message.success('Đã upload và phân tích minh chứng');
+      await evidenceApi.upload({
+        task_id: values.task_id,
+        uploaded_by: myId,
+        file,
+      });
+      message.success("Đã upload và phân tích minh chứng");
       setFile(null);
       form.resetFields();
       loadAll();
     } catch (err) {
       console.error(err);
-      message.error('Gặp lỗi khi tải lên hoặc phân tích minh chứng');
+      message.error("Gặp lỗi khi tải lên hoặc phân tích minh chứng");
     } finally {
       setUploading(false);
     }
@@ -95,63 +133,92 @@ export default function EvidencesPage() {
 
   return (
     <Space direction="vertical" size={18} className="page">
-      <Typography.Title level={3}>Minh chứng Công việc</Typography.Title>
-
-      <Card title="Upload minh chứng">
-        <Form layout="inline" form={form} disabled={uploading}>
-          <Form.Item
-            name="task_id"
-            rules={[{ required: true, message: 'Chọn nhiệm vụ' }]}
-            className="wide-form-item"
-          >
-            <Select
-              showSearch
-              optionFilterProp="label"
-              placeholder="Chọn nhiệm vụ..."
-              style={{ minWidth: 360 }}
-              options={taskSelectOptions}
-              optionRender={(opt) => (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {opt.data.group === 'assigned'
-                      ? opt.data.label.replace('[Đã giao] ', '')
-                      : opt.data.label.replace('[Phụ trách] ', '')}
-                  </span>
-                  <Tag
-                    style={{ margin: 0, borderRadius: 20, flexShrink: 0 }}
-                    color={opt.data.group === 'assigned' ? 'gold' : 'blue'}
-                  >
-                    {opt.data.group === 'assigned' ? 'Đã giao' : 'Phụ trách'}
-                  </Tag>
-                </div>
-              )}
-            />
-          </Form.Item>
-
-          <Upload
-            beforeUpload={(selected) => { setFile(selected); return false; }}
-            maxCount={1}
-            fileList={file ? [file] : []}
-            onRemove={() => setFile(null)}
-          >
-            <Button icon={<UploadOutlined />}>Chọn file</Button>
-          </Upload>
-
-          <Button type="primary" onClick={upload} loading={uploading}>
-            Upload
-          </Button>
-        </Form>
-
-        {/* Thống kê nhanh */}
-        <div style={{ marginTop: 12, fontSize: 13, color: '#64748b' }}>
-          {myTasks.length > 0 && <span>{myTasks.length} việc phụ trách</span>}
-          {canAssign && assignedTasks.length > 0 && (
-            <span style={{ marginLeft: 16 }}>{assignedTasks.length} việc đã giao</span>
-          )}
+      <div className="page-intro">
+        <div>
+          <Typography.Title level={3}>Minh chứng công việc</Typography.Title>
+          <Typography.Text>
+            Tải lên, quản lý và theo dõi kết quả phân tích minh chứng
+          </Typography.Text>
         </div>
+        <span className="page-intro__period">
+          {evidences.length} minh chứng của bạn
+        </span>
+      </div>
+
+      <Card title="Tải lên minh chứng" className="evidence-upload-card">
+        <Form layout="vertical" form={form} disabled={uploading}>
+          <Row gutter={[18, 12]}>
+            <Col xs={24} lg={9}>
+              <Form.Item
+                label="Nhiệm vụ"
+                name="task_id"
+                rules={[{ required: true, message: "Chọn nhiệm vụ" }]}
+              >
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Chọn nhiệm vụ cần nộp minh chứng"
+                  options={taskSelectOptions}
+                  optionRender={(opt) => (
+                    <div className="task-option">
+                      <span>
+                        {opt.data.group === "assigned"
+                          ? opt.data.label.replace("[Đã giao] ", "")
+                          : opt.data.label.replace("[Phụ trách] ", "")}
+                      </span>
+                      <Tag
+                        color={opt.data.group === "assigned" ? "gold" : "blue"}
+                      >
+                        {opt.data.group === "assigned"
+                          ? "Đã giao"
+                          : "Phụ trách"}
+                      </Tag>
+                    </div>
+                  )}
+                />
+              </Form.Item>
+              <div className="evidence-upload-meta">
+                <FileProtectOutlined />
+                <span>
+                  {myTasks.length} việc phụ trách
+                  {canAssign ? ` · ${assignedTasks.length} việc đã giao` : ""}
+                </span>
+              </div>
+            </Col>
+            <Col xs={24} lg={15}>
+              <Form.Item label="Tệp tin minh chứng" required>
+                <Upload.Dragger
+                  className="evidence-dragger"
+                  beforeUpload={(selected) => {
+                    setFile(selected);
+                    return false;
+                  }}
+                  maxCount={1}
+                  fileList={file ? [file] : []}
+                  onRemove={() => setFile(null)}
+                >
+                  <CloudUploadOutlined className="evidence-dragger__icon" />
+                  <strong>Kéo thả tệp tin vào đây</strong>
+                  <span>hoặc bấm để chọn từ thiết bị</span>
+                  <small>Hỗ trợ PDF, DOCX, XLSX, ảnh và tệp văn bản</small>
+                </Upload.Dragger>
+              </Form.Item>
+              <div className="evidence-upload-actions">
+                <Button
+                  type="primary"
+                  icon={<UploadOutlined />}
+                  onClick={upload}
+                  loading={uploading}
+                >
+                  Tải lên minh chứng
+                </Button>
+              </div>
+            </Col>
+          </Row>
+        </Form>
       </Card>
 
-      <Card>
+      <Card title="Danh sách minh chứng">
         <EvidenceTable data={evidences} loading={tableLoading} />
       </Card>
     </Space>

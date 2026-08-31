@@ -19,22 +19,30 @@ chạy thêm lệnh dưới đây 1 lần để dọn cột không dùng nữa (
 
 Chạy: python scripts/migrate_reports_to_blocks.py
 """
+
 import sys
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.append(str(BACKEND))
 
-from sqlalchemy import text  # noqa: E402
-
 from db.database import engine  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 
 
 def main() -> None:
+    """Run the operation."""
+
     with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT now()"))
+        conn.execute(
+            text(
+                "ALTER TABLE reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT now()"
+            )
+        )
     print("[migrate] Đã đảm bảo cột updated_at tồn tại trên bảng reports.")
-    print("[migrate] Báo cáo cũ (content dạng HTML) không cần convert, vẫn dùng được trực tiếp.")
+    print(
+        "[migrate] Báo cáo cũ (content dạng HTML) không cần convert, vẫn dùng được trực tiếp."
+    )
 
 
 if __name__ == "__main__":

@@ -1,11 +1,23 @@
-from db.models.chat import ChatLog, Conversation, ConversationMessage, ConversationSummary
+from db.models.chat import (
+    ChatLog,
+    Conversation,
+    ConversationMessage,
+    ConversationSummary,
+)
 from db.models.departments import Department
 from db.models.evidences import TaskEvidence
-from db.models.kpi import DocumentTypeRule, KPICriterion, KPIScore, KPITemplate
+from db.models.kpi import (
+    DocumentTypeRule,
+    KPIAssessmentInput,
+    KPICriterion,
+    KPIScore,
+    KPITemplate,
+    WorkCatalogItem,
+)
 from db.models.rag import DocumentChunk
 from db.models.reports import Report
 from db.models.tasks import Task, TaskAssignment
-from db.models.users import User
+from db.models.users import User, UserWorkArea
 
 __all__ = [
     "ChatLog",
@@ -15,6 +27,7 @@ __all__ = [
     "Department",
     "DocumentChunk",
     "DocumentTypeRule",
+    "KPIAssessmentInput",
     "KPICriterion",
     "KPIScore",
     "KPITemplate",
@@ -23,4 +36,6 @@ __all__ = [
     "TaskAssignment",
     "TaskEvidence",
     "User",
+    "UserWorkArea",
+    "WorkCatalogItem",
 ]

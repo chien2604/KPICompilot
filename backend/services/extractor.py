@@ -26,7 +26,6 @@ import traceback
 from pathlib import Path
 from typing import Any
 
-
 ExtractionResult = dict[str, Any]
 
 _EMPTY: ExtractionResult = {
@@ -39,12 +38,15 @@ _EMPTY: ExtractionResult = {
 
 
 def _result(**kwargs) -> ExtractionResult:
+    """Handle the operation."""
+
     return {**_EMPTY, **kwargs}
 
 
 # ══════════════════════════════════════════════════════════════════════
 # PDF
 # ══════════════════════════════════════════════════════════════════════
+
 
 def extract_pdf(file_path: Path) -> ExtractionResult:
     """Trích xuất text và bảng từ PDF bằng pdfplumber. Fallback sang pypdf."""
@@ -70,8 +72,7 @@ def extract_pdf(file_path: Path) -> ExtractionResult:
                         rows.append(" | ".join(cleaned))
                     if rows:
                         parts.append(
-                            f"[Bảng {tbl_idx + 1} – Trang {i + 1}]\n"
-                            + "\n".join(rows)
+                            f"[Bảng {tbl_idx + 1} – Trang {i + 1}]\n" + "\n".join(rows)
                         )
 
         text = "\n\n".join(parts)
@@ -84,6 +85,7 @@ def extract_pdf(file_path: Path) -> ExtractionResult:
         # Fallback to pypdf if pdfplumber is not installed
         try:
             from pypdf import PdfReader
+
             reader = PdfReader(str(file_path))
             page_count = len(reader.pages)
             parts = []
@@ -104,6 +106,7 @@ def extract_pdf(file_path: Path) -> ExtractionResult:
 # ══════════════════════════════════════════════════════════════════════
 # Word (.docx)
 # ══════════════════════════════════════════════════════════════════════
+
 
 def extract_word(file_path: Path) -> ExtractionResult:
     """Trích xuất text từ .docx (paragraphs + tables)."""
@@ -143,6 +146,7 @@ def extract_word(file_path: Path) -> ExtractionResult:
 # ══════════════════════════════════════════════════════════════════════
 # Excel (.xlsx / .xls)
 # ══════════════════════════════════════════════════════════════════════
+
 
 def extract_excel(file_path: Path) -> ExtractionResult:
     """Trích xuất dữ liệu từ tất cả sheet của file Excel."""
@@ -187,6 +191,7 @@ def extract_excel(file_path: Path) -> ExtractionResult:
 # ══════════════════════════════════════════════════════════════════════
 # Image
 # ══════════════════════════════════════════════════════════════════════
+
 
 def extract_image(file_path: Path) -> ExtractionResult:
     """
@@ -251,6 +256,7 @@ def extract_image(file_path: Path) -> ExtractionResult:
 # Dispatcher
 # ══════════════════════════════════════════════════════════════════════
 
+
 def extract(file_path: Path, file_type: str) -> ExtractionResult:
     """
     Entry point chính. Tự chọn hàm trích xuất theo loại file.
@@ -266,8 +272,8 @@ def extract(file_path: Path, file_type: str) -> ExtractionResult:
         return _result(error=f"File không tồn tại: {file_path}")
 
     dispatch = {
-        "pdf":   extract_pdf,
-        "word":  extract_word,
+        "pdf": extract_pdf,
+        "word": extract_word,
         "excel": extract_excel,
         "image": extract_image,
     }

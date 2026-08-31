@@ -8,12 +8,16 @@ from db.database import Base
 
 
 class Report(Base):
+    """Represent report data and behavior."""
+
     __tablename__ = "reports"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     report_type: Mapped[str] = mapped_column(String(30), default="WEEKLY")
     period: Mapped[str] = mapped_column(String(30), nullable=False)
-    department_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True)
+    department_id: Mapped[int | None] = mapped_column(
+        ForeignKey("departments.id"), nullable=True
+    )
 
     # content: HTML fragment sinh trực tiếp từ LLM theo report_generator_prompt.txt.
     # Đây là NGUỒN DỮ LIỆU CHÍNH — Web hiển thị trực tiếp, PDF render từ HTML này,
@@ -25,6 +29,10 @@ class Report(Base):
     # Có thêm field "_source" ("llm" | "llm_retry" | "fallback") để biết nguồn gốc nội dung.
     summary_json: Mapped[dict] = mapped_column(JSONB, default=dict)
 
-    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )

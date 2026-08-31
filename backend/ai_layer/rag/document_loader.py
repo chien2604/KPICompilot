@@ -1,7 +1,12 @@
 from pathlib import Path
 
+
 class DocumentLoader:
+    """Extract searchable text from supported evidence files."""
+
     def extract_text(self, file_path: str) -> str:
+        """Extract text by file extension and remove PostgreSQL-incompatible null bytes."""
+
         path = Path(file_path)
         suffix = path.suffix.lower()
         try:
@@ -16,25 +21,46 @@ class DocumentLoader:
             else:
                 # Không đọc trực tiếp file nhị phân chưa hỗ trợ thành text
                 text = f"Đã upload file {path.name} định dạng {suffix} chưa được hỗ trợ trích xuất toàn văn."
-        except Exception:
-            text = f"Không đọc được nội dung file {path.name}. Dùng metadata file làm minh chứng demo."
-        
+        except Exception as error:
+            text = f"Không đọc được nội dung file {path.name}: {error}"
+
         # Bắt buộc: Loại bỏ ký tự null (\x00) vì PostgreSQL không chấp nhận ký tự này trong trường TEXT
         return text.replace("\x00", "")
 
     def _extract_excel(self, path: Path) -> str:
-        try:
-            import pandas as pd
-            df_dict = pd.read_excel(str(path), sheet_name=None)
-            text_parts = []
-            for sheet_name, df in df_dict.items():
-                text_parts.append(f"--- Sheet: {sheet_name} ---")
-                text_parts.append(df.to_csv(index=False, sep='\t'))
+        """Extract cell values from XLS or XLSX workbooks."""
+
+        if path.suffix.lower() == ".xls":
+            import xlrd
+
+            workbook = xlrd.open_workbook(str(path))
+            text_parts: list[str] = []
+            for worksheet in workbook.sheets():
+                text_parts.append(f"--- Sheet: {worksheet.name} ---")
+                for row_index in range(worksheet.nrows):
+                    row_values = [
+                        str(worksheet.cell_value(row_index, column_index))
+                        for column_index in range(worksheet.ncols)
+                    ]
+                    text_parts.append("\t".join(row_values))
             return "\n".join(text_parts)
-        except Exception:
-            return f"EXCEL {path.name} đã được upload nhưng chưa trích xuất được text."
+
+        from openpyxl import load_workbook
+
+        workbook = load_workbook(path, read_only=True, data_only=True)
+        text_parts = []
+        for worksheet in workbook.worksheets:
+            text_parts.append(f"--- Sheet: {worksheet.title} ---")
+            for row in worksheet.iter_rows(values_only=True):
+                text_parts.append(
+                    "\t".join("" if value is None else str(value) for value in row)
+                )
+        workbook.close()
+        return "\n".join(text_parts)
 
     def _extract_pdf(self, path: Path) -> str:
+        """Extract PDF text with Docling and fall back to pypdf."""
+
         try:
             from docling.document_converter import DocumentConverter
 
@@ -47,9 +73,13 @@ class DocumentLoader:
                 reader = PdfReader(str(path))
                 return "\n".join(page.extract_text() or "" for page in reader.pages)
             except Exception:
-                return f"PDF {path.name} đã được upload nhưng chưa trích xuất được text."
+                return (
+                    f"PDF {path.name} đã được upload nhưng chưa trích xuất được text."
+                )
 
     def _extract_docx(self, path: Path) -> str:
+        """Extract DOCX text with Docling and fall back to python-docx."""
+
         try:
             from docling.document_converter import DocumentConverter
 
@@ -62,4 +92,6 @@ class DocumentLoader:
                 doc = Document(str(path))
                 return "\n".join(p.text for p in doc.paragraphs)
             except Exception:
-                return f"DOCX {path.name} đã được upload nhưng chưa trích xuất được text."
+                return (
+                    f"DOCX {path.name} đã được upload nhưng chưa trích xuất được text."
+                )

@@ -1,19 +1,26 @@
-import { useState, useEffect, useRef } from 'react';
-import { Button, Input } from 'antd';
-import { CloseOutlined, RobotOutlined, SendOutlined, UserOutlined } from '@ant-design/icons';
-import ReactMarkdown from 'react-markdown';
-import { chatbotApi } from '../api/chatbotApi';
-import { conversationApi } from '../api/conversationApi';
-import { useAuth } from '../contexts/AuthContext';
+import { useState, useEffect, useRef } from "react";
+import { Button, Input } from "antd";
+import {
+  CloseOutlined,
+  RobotOutlined,
+  SendOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
+import ReactMarkdown from "react-markdown";
+import { chatbotApi } from "../api/chatbotApi";
+import { conversationApi } from "../api/conversationApi";
+import { useAuth } from "../contexts/AuthContext";
 
 // Lấy tháng hiện tại dạng YYYY-MM
+/** Return the current month. */
 const getCurrentMonth = () => new Date().toISOString().slice(0, 7);
 
+/** Render the floating copilot interface. */
 export default function FloatingCopilot() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [convId, setConvId] = useState(null);
   const bottomRef = useRef(null);
@@ -24,9 +31,10 @@ export default function FloatingCopilot() {
   const dragStart = useRef({ x: 0, y: 0, right: 0, bottom: 0 });
   const containerRef = useRef(null);
 
+  /** Handle the on mouse down operation. */
   const onMouseDown = (e) => {
     // Chỉ drag khi click vào nút, không phải popup
-    if (e.target.closest('.floating-copilot__popup')) return;
+    if (e.target.closest(".floating-copilot__popup")) return;
     dragging.current = true;
     dragStart.current = {
       x: e.clientX,
@@ -38,33 +46,47 @@ export default function FloatingCopilot() {
   };
 
   useEffect(() => {
+    /** Handle the on mouse move operation. */
     const onMouseMove = (e) => {
       if (!dragging.current) return;
       const dx = dragStart.current.x - e.clientX;
       const dy = dragStart.current.y - e.clientY;
-      const newRight = Math.max(8, Math.min(window.innerWidth - 68, dragStart.current.right + dx));
-      const newBottom = Math.max(8, Math.min(window.innerHeight - 68, dragStart.current.bottom + dy));
+      const newRight = Math.max(
+        8,
+        Math.min(window.innerWidth - 68, dragStart.current.right + dx),
+      );
+      const newBottom = Math.max(
+        8,
+        Math.min(window.innerHeight - 68, dragStart.current.bottom + dy),
+      );
       setPos({ right: newRight, bottom: newBottom });
     };
-    const onMouseUp = () => { dragging.current = false; };
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    /** Handle the on mouse up operation. */
+    const onMouseUp = () => {
+      dragging.current = false;
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
     return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
     };
   }, [pos]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  /** Handle the send operation. */
   const send = async () => {
     if (!value.trim() || loading) return;
     const question = value.trim();
-    setValue('');
+    setValue("");
 
-    setMessages((prev) => [...prev, { role: 'user', content: question, id: Date.now() }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: question, id: Date.now() },
+    ]);
     setLoading(true);
 
     try {
@@ -82,24 +104,36 @@ export default function FloatingCopilot() {
         month: getCurrentMonth(),
         department_id: user?.department_id ?? null,
       });
-      const detail = await conversationApi.get(res.conversation_id || cid, { user_id: user?.user_id });
+      const detail = await conversationApi.get(res.conversation_id || cid, {
+        user_id: user?.user_id,
+      });
       const msgs = detail.messages || [];
-      setMessages(msgs.map((m, i) => ({ role: m.role, content: m.content, id: i })));
+      setMessages(
+        msgs.map((m, i) => ({ role: m.role, content: m.content, id: i })),
+      );
     } catch {
-      setMessages((prev) => [...prev, {
-        role: 'assistant',
-        content: 'Không kết nối được AI. Vui lòng thử lại.',
-        id: Date.now(),
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Không kết nối được AI. Vui lòng thử lại.",
+          id: Date.now(),
+        },
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
+  /** Handle the key down. */
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
   };
 
+  /** Toggle the open. */
   const toggleOpen = () => {
     setOpen((v) => !v);
   };
@@ -119,7 +153,10 @@ export default function FloatingCopilot() {
               <RobotOutlined style={{ fontSize: 20 }} />
               <span>AI KPI Copilot</span>
             </div>
-            <button className="floating-copilot__close" onClick={() => setOpen(false)}>
+            <button
+              className="floating-copilot__close"
+              onClick={() => setOpen(false)}
+            >
               <CloseOutlined />
             </button>
           </div>
@@ -127,17 +164,31 @@ export default function FloatingCopilot() {
           <div className="floating-copilot__messages">
             {messages.length === 0 && (
               <div className="floating-copilot__empty">
-                <RobotOutlined style={{ fontSize: 36, color: '#cbd5e1' }} />
+                <RobotOutlined style={{ fontSize: 36, color: "#cbd5e1" }} />
                 <p>Xin chào! Tôi có thể giúp gì cho bạn?</p>
               </div>
             )}
             {messages.map((msg) => (
-              <div key={msg.id} className={`floating-copilot__msg floating-copilot__msg--${msg.role}`}>
-                <div className={`floating-copilot__avatar floating-copilot__avatar--${msg.role}`}>
-                  {msg.role === 'assistant' ? <RobotOutlined /> : <UserOutlined />}
+              <div
+                key={msg.id}
+                className={`floating-copilot__msg floating-copilot__msg--${msg.role}`}
+              >
+                <div
+                  className={`floating-copilot__avatar floating-copilot__avatar--${msg.role}`}
+                >
+                  {msg.role === "assistant" ? (
+                    <RobotOutlined />
+                  ) : (
+                    <UserOutlined />
+                  )}
                 </div>
-                <div className={`floating-copilot__bubble floating-copilot__bubble--${msg.role}`}>
-                  <div className="ai-markdown-container" style={{ fontSize: 14 }}>
+                <div
+                  className={`floating-copilot__bubble floating-copilot__bubble--${msg.role}`}
+                >
+                  <div
+                    className="ai-markdown-container"
+                    style={{ fontSize: 14 }}
+                  >
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                   </div>
                 </div>
@@ -145,9 +196,13 @@ export default function FloatingCopilot() {
             ))}
             {loading && (
               <div className="floating-copilot__msg floating-copilot__msg--assistant">
-                <div className="floating-copilot__avatar floating-copilot__avatar--assistant"><RobotOutlined /></div>
+                <div className="floating-copilot__avatar floating-copilot__avatar--assistant">
+                  <RobotOutlined />
+                </div>
                 <div className="floating-copilot__bubble floating-copilot__bubble--assistant floating-copilot__bubble--typing">
-                  <span /><span /><span />
+                  <span />
+                  <span />
+                  <span />
                 </div>
               </div>
             )}
@@ -178,11 +233,15 @@ export default function FloatingCopilot() {
 
       {/* Nút nổi */}
       <button
-        className={`floating-copilot__btn ${open ? 'floating-copilot__btn--active' : ''}`}
+        className={`floating-copilot__btn ${open ? "floating-copilot__btn--active" : ""}`}
         onClick={toggleOpen}
         aria-label="AI Copilot"
       >
-        {open ? <CloseOutlined style={{ fontSize: 22 }} /> : <RobotOutlined style={{ fontSize: 26 }} />}
+        {open ? (
+          <CloseOutlined style={{ fontSize: 22 }} />
+        ) : (
+          <RobotOutlined style={{ fontSize: 26 }} />
+        )}
       </button>
     </div>
   );
