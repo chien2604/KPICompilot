@@ -2038,13 +2038,85 @@ h3.ant-typography {
   align-items: center;
   justify-content: center;
   color: #94a3b8;
-  gap: 8px;
-  padding: 24px 0;
+  gap: 14px;
+  padding: 20px 8px;
 }
 
-.floating-copilot__empty p {
+.floating-copilot__welcome-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  color: #d31a1a;
+  background: #fff3c7;
+  border: 1px solid #f5df92;
+  border-radius: 50%;
+  font-size: 25px;
+}
+
+.floating-copilot__welcome-copy {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+}
+
+.floating-copilot__welcome-copy strong {
+  color: #172033;
   font-size: 14px;
-  margin: 0;
+}
+
+.floating-copilot__welcome-copy span {
+  max-width: 280px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.floating-copilot__quick-questions {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.floating-copilot__quick-questions button {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  color: #334155;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.floating-copilot__quick-questions button .anticon {
+  flex: 0 0 auto;
+  color: #d31a1a;
+  font-size: 15px;
+}
+
+.floating-copilot__quick-questions button:hover {
+  color: #a80f16;
+  background: #fffaf0;
+  border-color: #edb3ae;
+}
+
+.floating-copilot__quick-questions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .floating-copilot__msg {
@@ -4321,7 +4393,9 @@ body {
 }
 
 .page {
-  width: min(100%, 1600px) !important;
+  display: flex !important;
+  width: 100% !important;
+  max-width: 1600px !important;
   margin: 0 auto !important;
   color: var(--nl-ink) !important;
   font-size: 14px !important;
@@ -4524,10 +4598,13 @@ body .page .ant-card-small .ant-card-body {
   font-size: 11px;
 }
 
-/* Compact six-unit organization view for desktop screens. */
+/* Distribute every visible organization unit across the available desktop row. */
 @media (min-width: 1180px) {
   .commune-org-chart__units {
-    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(
+      var(--org-unit-count, 6),
+      minmax(0, 1fr)
+    ) !important;
   }
 }
 
@@ -4588,6 +4665,32 @@ body .page .ant-card-small .ant-card-body {
 .organization-card .ant-card-extra {
   color: var(--nl-muted) !important;
   font-size: 12px !important;
+}
+
+/* Keep paired dashboard panels and heatmap summaries aligned by row. */
+.dashboard-equal-row > .ant-col,
+.heatmap-summary-row > .ant-col {
+  display: flex;
+}
+
+.dashboard-equal-row > .ant-col > .ant-card,
+.heatmap-summary-row > .ant-col > .ant-card {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+}
+
+.dashboard-equal-row > .ant-col > .ant-card > .ant-card-body,
+.heatmap-summary-row > .ant-col > .ant-card > .ant-card-body {
+  flex: 1;
+}
+
+.dashboard-chart-card > .ant-card-body {
+  display: flex;
+  min-height: 256px;
+  align-items: center;
+  justify-content: center;
 }
 
 .heatmap-page-toolbar {

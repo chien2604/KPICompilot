@@ -10,14 +10,8 @@ export const taskApi = {
   updateStatus: (id, payload) =>
     apiClient.patch(`/tasks/${id}/status`, payload).then((res) => res.data),
   remove: (id) => apiClient.delete(`/tasks/${id}`).then((res) => res.data),
-  scoreAssignment: (taskId, userId, leaderScore) =>
+  verifyAssignment: (taskId, userId, payload) =>
     apiClient
-      .patch(`/tasks/${taskId}/assignments/${userId}/score`, null, {
-        params: { leader_score: leaderScore },
-      })
-      .then((res) => res.data),
-  updateQuality: (taskId, userId, payload) =>
-    apiClient
-      .patch(`/tasks/${taskId}/assignments/${userId}/quality`, payload)
+      .patch(`/tasks/${taskId}/assignments/${userId}/verify`, payload)
       .then((res) => res.data),
 };

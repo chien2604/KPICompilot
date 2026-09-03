@@ -103,7 +103,10 @@ export default function OrgHeatmap({
         </div>
       </div>
 
-      <div className="commune-org-chart__units">
+      <div
+        className="commune-org-chart__units"
+        style={{ "--org-unit-count": Math.min(units.length, 6) }}
+      >
         {units.map((department) => {
           const unitData = heatmap[department.id];
           const unitUsers = users

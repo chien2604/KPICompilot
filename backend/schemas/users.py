@@ -18,6 +18,9 @@ class PersonnelFields(BaseModel):
     political_theory: str = "Chưa cập nhật"
     position_title: str | None = None
     organization_role: str = "SPECIALIST"
+    organization_domain: str = "UBND"
+    manager_id: int | None = None
+    management_scope_json: dict = Field(default_factory=dict)
     primary_position_code: str = "CHUA_XAC_DINH"
     personnel_type: str = "CONG_CHUC"
     is_kpi_eligible: bool = True
@@ -69,6 +72,9 @@ class UserAccountUpdate(BaseModel):
     professional_qualification: str | None = None
     political_theory: str | None = None
     organization_role: str | None = None
+    organization_domain: str | None = None
+    manager_id: int | None = None
+    management_scope_json: dict | None = None
     primary_position_code: str | None = None
     personnel_type: str | None = None
     is_kpi_eligible: bool | None = None

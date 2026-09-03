@@ -10,9 +10,9 @@ from pathlib import Path
 from ai_layer.rag.kuzu_graph_store import KuzuGraphStore
 from core.config import Settings
 from core.organization import (
-    LEADERSHIP_ROLE,
     OUT_OF_SCOPE_ROLE,
     SPECIALIST_ROLE,
+    UBND_AUTHORITY_ROLE,
     UNIT_DEPUTY_ROLE,
     UNIT_HEAD_ROLE,
     USER_ROLE,
@@ -33,7 +33,8 @@ EXPECTED_PERSONNEL_COUNT = 42
 EXPECTED_WORK_ITEM_COUNT = 371
 
 DEPARTMENT_NAMES = {
-    "LANH_DAO_HDND_UBND": "Lãnh đạo HĐND, UBND xã",
+    "LANH_DAO_UBND": "Lãnh đạo UBND xã",
+    "HDND_XA": "Hội đồng nhân dân xã",
     "VAN_PHONG_HDND_UBND": "Văn phòng HĐND - UBND",
     "PHONG_KINH_TE": "Phòng Kinh tế",
     "PHONG_VAN_HOA_XA_HOI": "Phòng Văn hóa - Xã hội",
@@ -125,8 +126,8 @@ class PersonnelWorkbookReader:
         for row in worksheet.iter_rows(min_row=9, values_only=True):
             if not isinstance(row[0], int) or not self._clean_text(row[1]):
                 continue
-            department_code = self._resolve_department_code(row[6])
             source_work_area = self._clean_text(row[7]) or MISSING_INFORMATION
+            department_code = self._resolve_department_code(row[6], source_work_area)
             position_title = self._position_title(department_code, source_work_area)
             organization_role = self._organization_role(
                 department_code, position_title
@@ -145,14 +146,14 @@ class PersonnelWorkbookReader:
                     political_theory=self._political_theory(row[10:13]),
                     personnel_type=(
                         "CAN_BO"
-                        if department_code == "LANH_DAO_HDND_UBND"
+                        if department_code in {"LANH_DAO_UBND", "HDND_XA"}
                         else "CONG_CHUC"
                     ),
                     organization_role=organization_role,
                     primary_position_code=self._primary_position_code(
                         department_code, organization_role, source_work_area
                     ),
-                    is_kpi_eligible=True,
+                    is_kpi_eligible=department_code not in {"LANH_DAO_UBND", "HDND_XA"},
                     work_areas=work_areas,
                     import_notes=self._source_ambiguity_note(row[4], row[5]),
                 )
@@ -187,12 +188,15 @@ class PersonnelWorkbookReader:
             )
         return records
 
-    def _resolve_department_code(self, source_department: object) -> str:
+    def _resolve_department_code(
+        self, source_department: object, source_work_area: str
+    ) -> str:
         """Map workbook department labels to stable internal codes."""
 
         value = self._normalize_search_text(source_department)
         if not value:
-            return "LANH_DAO_HDND_UBND"
+            title = self._normalize_search_text(source_work_area)
+            return "LANH_DAO_UBND" if "ubnd" in title else "HDND_XA"
         if "vp hdnd ubnd" in value:
             return "VAN_PHONG_HDND_UBND"
         if value == "kinh te":
@@ -206,8 +210,10 @@ class PersonnelWorkbookReader:
     def _organization_role(self, department_code: str, position_title: str) -> str:
         """Derive assignment authority from explicit titles and unit membership."""
 
-        if department_code == "LANH_DAO_HDND_UBND":
-            return LEADERSHIP_ROLE
+        if department_code == "LANH_DAO_UBND":
+            return UBND_AUTHORITY_ROLE
+        if department_code == "HDND_XA":
+            return OUT_OF_SCOPE_ROLE
         normalized_title = self._normalize_search_text(position_title)
         if re.search(r"\bpho (truong|chanh)\b", normalized_title):
             return UNIT_DEPUTY_ROLE
@@ -234,7 +240,7 @@ class PersonnelWorkbookReader:
         """Create a stable primary-position code without encoding personnel names."""
 
         role_codes = {
-            LEADERSHIP_ROLE: "LD_XA",
+            UBND_AUTHORITY_ROLE: "THAM_QUYEN_UBND",
             UNIT_HEAD_ROLE: "LDQL_TRUONG",
             UNIT_DEPUTY_ROLE: "LDQL_PHO",
             SPECIALIST_ROLE: "CMNV",
@@ -249,8 +255,10 @@ class PersonnelWorkbookReader:
         """Match one primary position to one or more concurrent work areas."""
 
         normalized = self._normalize_search_text(source_work_area)
-        if department_code == "LANH_DAO_HDND_UBND":
+        if department_code == "LANH_DAO_UBND":
             return (("QL", "Lãnh đạo, quản lý"),)
+        if department_code == "HDND_XA":
+            return (("HDND", "Ngoài phạm vi KPI UBND"),)
         if department_code == "VAN_PHONG_HDND_UBND":
             return (("VP", "Văn phòng HĐND - UBND"),)
         if department_code == "TRUNG_TAM_HCC":
@@ -487,6 +495,7 @@ class PersonnelImportService:
         departments = self._create_departments(organization)
         self._create_work_catalog(catalog)
         users = self._create_users(departments, personnel_records)
+        self._configure_reporting_lines(users)
         self.database_session.commit()
         self._clear_local_storage()
         self._synchronize_graph(organization, departments, users)
@@ -538,7 +547,11 @@ class PersonnelImportService:
             department = Department(
                 name=name,
                 code=code,
-                unit_type="LEADERSHIP" if code == "LANH_DAO_HDND_UBND" else "UNIT",
+                unit_type=(
+                    "AUTHORITY" if code == "LANH_DAO_UBND"
+                    else "OUT_OF_SCOPE" if code == "HDND_XA"
+                    else "UNIT"
+                ),
                 parent_id=organization.id,
             )
             self.database_session.add(department)
@@ -571,6 +584,11 @@ class PersonnelImportService:
                 kpi_role_template=template.code,
                 permission_level=template.permission_level,
                 organization_role=record.organization_role,
+                organization_domain=(
+                    "HDND" if record.department_code == "HDND_XA"
+                    else "OUT_OF_UBND_KPI_SCOPE" if record.department_code == "TRUNG_TAM_CUDVC"
+                    else "UBND"
+                ),
                 primary_position_code=record.primary_position_code,
                 personnel_type=record.personnel_type,
                 is_kpi_eligible=record.is_kpi_eligible,
@@ -603,6 +621,37 @@ class PersonnelImportService:
             users.append(user)
         self.database_session.flush()
         return users
+
+    def _configure_reporting_lines(self, users: list[User]) -> None:
+        """Link authority, unit heads, deputies, and specialists after bootstrap."""
+
+        authority = next(
+            (
+                user
+                for user in users
+                if user.organization_role == UBND_AUTHORITY_ROLE
+                and "phó" not in user.position_title.lower()
+            ),
+            None,
+        )
+        heads = {
+            user.department_id: user
+            for user in users
+            if user.organization_role == UNIT_HEAD_ROLE
+        }
+        for user in users:
+            if user.organization_role == UNIT_HEAD_ROLE:
+                user.manager_id = authority.id if authority else None
+                user.management_scope_json = {"all_department": True}
+            elif user.organization_role in {UNIT_DEPUTY_ROLE, SPECIALIST_ROLE}:
+                head = heads.get(user.department_id)
+                user.manager_id = head.id if head else None
+            if user.organization_role == UNIT_DEPUTY_ROLE:
+                user.management_scope_json = {
+                    "all_department": "phụ trách chung" in user.position_title.lower(),
+                    "work_area_codes": [area.area_code for area in user.work_areas],
+                }
+        self.database_session.flush()
 
     def _clear_local_storage(self) -> None:
         """Remove old evidence files and rebuild the embedded graph directory."""

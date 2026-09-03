@@ -3,25 +3,20 @@
 from datetime import datetime
 
 from ai_layer.kpi_explainer import KPIExplainer
-from core.organization import LEADERSHIP_ROLE, UNIT_DEPUTY_ROLE, UNIT_HEAD_ROLE
+from core.organization import SPECIALIST_ROLE, UNIT_DEPUTY_ROLE, UNIT_HEAD_ROLE
+from db.models.evidences import TaskEvidence
 from db.models.kpi import (
     KPIAssessmentInput,
     KPICriterion,
     KPIScore,
     KPITemplate,
-    WorkCatalogItem,
 )
 from db.models.tasks import Task, TaskAssignment
 from db.models.users import User
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-MANAGEMENT_ROLES = {LEADERSHIP_ROLE, UNIT_HEAD_ROLE, UNIT_DEPUTY_ROLE}
-MANAGEMENT_METRICS = (
-    "unit_result_percent",
-    "implementation_percent",
-    "cohesion_percent",
-)
+MANAGEMENT_ROLES = {UNIT_HEAD_ROLE, UNIT_DEPUTY_ROLE}
 
 
 class KPIEngine:
@@ -64,7 +59,9 @@ class KPIEngine:
         )
         common_result = self._common_score(criteria, assessment)
         assignments = self._period_assignments(user_id, period_start, period_end)
-        task_result = self._task_result(user, assignments, assessment)
+        task_result = self._task_result(
+            user, assignments, assessment, period_month
+        )
         total_score = round(common_result["score"] + task_result["score"], 2)
         missing_inputs = common_result["missing_inputs"] + task_result["missing_inputs"]
         return {
@@ -72,7 +69,8 @@ class KPIEngine:
             "period_month": period_month,
             "template_id": template.id,
             "total_score": total_score,
-            "classification": self.classify(total_score),
+            "classification": self.reference_level(total_score),
+            "reference_level": self.reference_level(total_score),
             "risk_level": self.risk_level(total_score),
             "breakdown": [common_result["breakdown"], task_result["breakdown"]],
             "raw_reasons": common_result["reasons"] + task_result["reasons"],
@@ -112,20 +110,23 @@ class KPIEngine:
         }
         row.risk_level = result["risk_level"]
         row.ai_explanation = explanation
+        row.score_status = "PENDING_CONFIRMATION"
+        row.confirmed_by = None
+        row.confirmed_at = None
         self.database_session.commit()
         self.database_session.refresh(row)
         return row
 
-    def classify(self, score: float) -> str:
-        """Classify a result using the score bands in Decree 335."""
+    def reference_level(self, score: float) -> str:
+        """Return a monthly tracking band without claiming annual classification."""
 
         if score >= 90:
-            return "Hoàn thành xuất sắc nhiệm vụ"
+            return "Mức tham chiếu 90-100"
         if score >= 70:
-            return "Hoàn thành tốt nhiệm vụ"
+            return "Mức tham chiếu 70-89"
         if score >= 50:
-            return "Hoàn thành nhiệm vụ"
-        return "Không hoàn thành nhiệm vụ"
+            return "Mức tham chiếu 50-69"
+        return "Mức tham chiếu dưới 50"
 
     def risk_level(self, score: float) -> str:
         """Map final points to the existing operational risk scale."""
@@ -137,8 +138,19 @@ class KPIEngine:
         return "HIGH"
 
     def _period_bounds(self, period_month: str) -> tuple[datetime, datetime]:
-        """Return inclusive start and exclusive end datetimes for a month."""
+        """Return inclusive start and exclusive end for a month or quarter."""
 
+        if "-Q" in period_month:
+            year_text, quarter_text = period_month.split("-Q")
+            start_month = (int(quarter_text) - 1) * 3 + 1
+            period_start = datetime(int(year_text), start_month, 1)
+            end_month = start_month + 3
+            period_end = (
+                datetime(int(year_text) + 1, 1, 1)
+                if end_month > 12
+                else datetime(int(year_text), end_month, 1)
+            )
+            return period_start, period_end
         period_start = datetime.strptime(period_month, "%Y-%m")
         period_end = (
             period_start.replace(year=period_start.year + 1, month=1)
@@ -174,13 +186,16 @@ class KPIEngine:
     ) -> dict:
         """Validate and total the 30-point reviewer-entered common criteria."""
 
-        entered_scores = assessment.common_scores_json if assessment else {}
+        entered_scores = assessment.reviewed_scores_json if assessment else {}
+        self_scores = assessment.self_scores_json if assessment else {}
         score = 0.0
         reasons: list[str] = []
         missing_inputs: list[str] = []
         criterion_rows: list[dict] = []
         for criterion in criteria:
             entered_value = entered_scores.get(criterion.criterion_code)
+            if criterion.criterion_code not in self_scores:
+                missing_inputs.append(f"SELF:{criterion.criterion_code}")
             if entered_value is None:
                 value = 0.0
                 missing_inputs.append(criterion.criterion_code)
@@ -223,6 +238,7 @@ class KPIEngine:
         user: User,
         assignments: list[TaskAssignment],
         assessment: KPIAssessmentInput | None,
+        period_month: str,
     ) -> dict:
         """Calculate quantity, quality, timeliness, and management ratios."""
 
@@ -230,7 +246,7 @@ class KPIEngine:
         completed_weight = sum(
             self._assignment_weight(item)
             for item in assignments
-            if item.task.status == "COMPLETED"
+            if self._is_verified_output(item)
         )
         quantity_ratio = completed_weight / total_weight if total_weight else 0.0
         quality_ratio = self._quality_ratio(assignments, total_weight)
@@ -245,29 +261,35 @@ class KPIEngine:
         if not assignments:
             missing_inputs.append("TASK_ASSIGNMENTS")
         if user.organization_role in MANAGEMENT_ROLES:
-            management_values = (
-                assessment.management_metrics_json if assessment else {}
+            unit_ratio = self._managed_user_ratio(user, period_month)
+            if unit_ratio is None:
+                unit_ratio = 0.0
+                missing_inputs.append("d")
+            ratios.append(unit_ratio)
+            metric_rows.append(
+                {
+                    "code": "d",
+                    "name": "Kết quả nhân sự thuộc phạm vi quản lý",
+                    "ratio": unit_ratio,
+                }
             )
-            metric_names = {
-                "unit_result_percent": "Kết quả đơn vị/lĩnh vực phụ trách",
-                "implementation_percent": "Năng lực tổ chức thực hiện",
-                "cohesion_percent": "Đoàn kết nội bộ",
-            }
-            for metric_code in MANAGEMENT_METRICS:
-                entered_value = management_values.get(metric_code)
-                if entered_value is None:
+            management_values = assessment.management_review_json if assessment else {}
+            management_fields = (
+                ("implementation_level", "Năng lực tổ chức thực hiện"),
+                ("cohesion_level", "Đoàn kết nội bộ"),
+            )
+            for code, name in management_fields:
+                level = management_values.get(code)
+                if level not in {"FULL", "PARTIAL"}:
                     ratio = 0.0
-                    missing_inputs.append(metric_code)
+                    missing_inputs.append(code)
                 else:
-                    percentage = float(entered_value)
-                    if percentage < 0 or percentage > 100:
-                        raise ValueError(f"{metric_names[metric_code]} phải từ 0 đến 100%.")
-                    ratio = percentage / 100
+                    ratio = 1.0 if level == "FULL" else 0.5
                 ratios.append(ratio)
                 metric_rows.append(
                     {
-                        "code": metric_code,
-                        "name": metric_names[metric_code],
+                        "code": "đ" if code == "implementation_level" else "e",
+                        "name": name,
                         "ratio": ratio,
                     }
                 )
@@ -302,12 +324,8 @@ class KPIEngine:
         """Use the approved catalog factor and fall back to an explicit task weight."""
 
         task = assignment.task
-        if task.work_catalog_item_id is not None:
-            catalog_item = self.database_session.get(
-                WorkCatalogItem, task.work_catalog_item_id
-            )
-            if catalog_item is not None:
-                return max(float(catalog_item.conversion_factor), 0.0)
+        if task.conversion_factor_snapshot is not None:
+            return max(float(task.conversion_factor_snapshot), 0.0)
         return max(float(task.weight or 0), 0.0)
 
     def _quality_ratio(
@@ -319,10 +337,14 @@ class KPIEngine:
             return 0.0
         weighted_quality = 0.0
         for assignment in assignments:
-            if assignment.task.status != "COMPLETED":
+            if not self._is_verified_output(assignment):
                 continue
-            quality_ratio = max(0.0, min(1.0, assignment.quality_percent / 100))
-            quality_ratio = max(0.0, quality_ratio - 0.25 * assignment.major_error_count)
+            quality_ratio = 1.0 if assignment.quality_status == "PASS" else 0.0
+            if not assignment.objective_quality_exception:
+                quality_ratio = max(
+                    0.0,
+                    quality_ratio - 0.25 * assignment.major_error_count,
+                )
             weighted_quality += self._assignment_weight(assignment) * quality_ratio
         return weighted_quality / total_weight
 
@@ -335,16 +357,103 @@ class KPIEngine:
             return 0.0
         weighted_timeliness = 0.0
         for assignment in assignments:
-            if assignment.task.status != "COMPLETED":
+            if not self._is_verified_output(assignment):
                 continue
             derived_late_count = 0
             if (
-                assignment.task.completed_at
+                assignment.submitted_at
                 and assignment.task.deadline
-                and assignment.task.completed_at > assignment.task.deadline
+                and assignment.submitted_at > assignment.task.deadline
             ):
                 derived_late_count = 1
             late_count = max(assignment.late_count, derived_late_count)
-            timeliness_ratio = max(0.0, 1.0 - 0.25 * late_count)
+            timeliness_ratio = (
+                1.0
+                if assignment.objective_delay_exception
+                else max(0.0, 1.0 - 0.25 * late_count)
+            )
             weighted_timeliness += self._assignment_weight(assignment) * timeliness_ratio
         return weighted_timeliness / total_weight
+
+    def _is_verified_output(self, assignment: TaskAssignment) -> bool:
+        """Require both human assignment verification and a verified output record."""
+
+        if assignment.status != "VERIFIED":
+            return False
+        return self.database_session.query(TaskEvidence.id).filter(
+            TaskEvidence.assignment_id == assignment.id,
+            TaskEvidence.verification_status == "VERIFIED",
+        ).first() is not None
+
+    def _managed_user_ratio(
+        self,
+        manager: User,
+        period_month: str,
+    ) -> float | None:
+        """Apply the fixed unit-result rule to the manager's confirmed scope."""
+
+        managed_users = self._managed_users(manager)
+        if not managed_users:
+            return None
+        managed_user_ids = [user.id for user in managed_users]
+        score_rows = (
+            self.database_session.query(
+                KPIScore.user_id,
+                KPIScore.total_score,
+                KPIScore.created_at,
+            )
+            .filter(
+                KPIScore.user_id.in_(managed_user_ids),
+                KPIScore.period_month == period_month,
+                KPIScore.score_status == "CONFIRMED",
+            )
+            .order_by(KPIScore.created_at)
+            .all()
+        )
+        latest_scores = {row[0]: float(row[1]) for row in score_rows}
+        if len(latest_scores) != len(managed_user_ids):
+            return None
+        return self._management_result_ratio(list(latest_scores.values()))
+
+    def _managed_users(self, manager: User) -> list[User]:
+        """Resolve direct reports for heads and delegated work-area scope for deputies."""
+
+        if manager.organization_role == UNIT_HEAD_ROLE:
+            return (
+                self.database_session.query(User)
+                .filter(
+                    User.manager_id == manager.id,
+                    User.is_active.is_(True),
+                    User.is_kpi_eligible.is_(True),
+                )
+                .all()
+            )
+        if manager.organization_role != UNIT_DEPUTY_ROLE:
+            return []
+        candidates = (
+            self.database_session.query(User)
+            .filter(
+                User.department_id == manager.department_id,
+                User.organization_role == SPECIALIST_ROLE,
+                User.is_active.is_(True),
+                User.is_kpi_eligible.is_(True),
+            )
+            .all()
+        )
+        scope = manager.management_scope_json or {}
+        if scope.get("all_department"):
+            return candidates
+        allowed_areas = set(scope.get("work_area_codes", []))
+        if not allowed_areas:
+            return []
+        return [
+            user
+            for user in candidates
+            if allowed_areas.intersection(area.area_code for area in user.work_areas)
+        ]
+
+    @staticmethod
+    def _management_result_ratio(scores: list[float]) -> float:
+        """Return 50% when any managed score is below 50, otherwise 100%."""
+
+        return 0.5 if any(score < 50 for score in scores) else 1.0

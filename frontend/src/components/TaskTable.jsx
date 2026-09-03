@@ -29,23 +29,24 @@ const PRIORITY_COLOR = { HIGH: "#e53935", MEDIUM: "#f59e0b", LOW: "#2563eb" };
 const PRIORITY_LABEL = { HIGH: "Cao", MEDIUM: "Trung bình", LOW: "Thấp" };
 
 const STATUS_PROGRESS = {
-  COMPLETED: 100,
+  VERIFIED: 100,
+  SUBMITTED: 100,
   IN_PROGRESS: 50,
   NOT_STARTED: 0,
   OVERDUE: 75,
 };
 const STATUS_COLOR = {
-  COMPLETED: "#16a34a",
+  VERIFIED: "#16a34a",
+  SUBMITTED: "#2563eb",
   IN_PROGRESS: "#f59e0b",
   NOT_STARTED: "#94a3b8",
   OVERDUE: "#e53935",
 };
 
 const STATUS_OPTIONS = [
-  { value: "COMPLETED", label: "Hoàn thành", color: "#16a34a" },
+  { value: "SUBMITTED", label: "Chờ xác minh", color: "#2563eb" },
   { value: "IN_PROGRESS", label: "Đang thực hiện", color: "#f59e0b" },
   { value: "NOT_STARTED", label: "Chưa bắt đầu", color: "#64748b" },
-  { value: "OVERDUE", label: "Quá hạn", color: "#e53935" },
 ];
 
 /** Render the task detail drawer interface. */
@@ -143,7 +144,7 @@ function TaskDetailDrawer({ task, open, onClose, onStatusChange, onEditTask }) {
               borderColor: "#ffd1ce",
             }}
           >
-            Nhóm VB: {task.document_type}
+            Mã: {task.work_catalog_code || "—"}
           </Tag>
         </div>
         <Progress
@@ -184,11 +185,13 @@ function TaskDetailDrawer({ task, open, onClose, onStatusChange, onEditTask }) {
         <Descriptions.Item
           label={
             <span>
-              <TrophyOutlined /> Trọng số KPI
+              <TrophyOutlined /> Hệ số quy đổi
             </span>
           }
         >
-          <span style={{ fontWeight: 600 }}>{task.weight ?? "—"}</span>
+          <span style={{ fontWeight: 600 }}>
+            {task.conversion_factor ?? "—"}
+          </span>
         </Descriptions.Item>
         <Descriptions.Item
           label={
@@ -359,9 +362,9 @@ export default function TaskTable({
       render: (value) => <StatusTag status={value} />,
     },
     {
-      title: "Loại VB",
-      dataIndex: "document_type",
-      width: 80,
+      title: "Mã công việc",
+      dataIndex: "work_catalog_code",
+      width: 120,
       align: "center",
     },
     {

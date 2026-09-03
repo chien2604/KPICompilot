@@ -150,16 +150,16 @@ export default function EvidenceAnalysisPage() {
                         {task.status}
                       </Tag>
                     </Descriptions.Item>
-                    <Descriptions.Item label="Nhóm VB">
-                      {task.document_type}
+                    <Descriptions.Item label="Mã công việc">
+                      {task.work_catalog_code || "—"}
                     </Descriptions.Item>
                     <Descriptions.Item label="Hạn xử lý">
                       {task.deadline
                         ? new Date(task.deadline).toLocaleDateString("vi-VN")
                         : "—"}
                     </Descriptions.Item>
-                    <Descriptions.Item label="Trọng số KPI">
-                      {task.weight ?? "—"}
+                    <Descriptions.Item label="Hệ số quy đổi">
+                      {task.conversion_factor ?? "—"}
                     </Descriptions.Item>
                     {task.description && (
                       <Descriptions.Item label="Mô tả" span={2}>

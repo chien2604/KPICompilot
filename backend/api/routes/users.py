@@ -4,12 +4,12 @@ from core.deps import get_current_user, require_admin
 from core.organization import (
     ADMIN_ROLE,
     ADMIN_TEMPLATE,
+    LEADERSHIP_ROLE,
     USER_ROLE,
     get_template_or_error,
     list_position_templates,
 )
-from core.permissions import can_view_user, get_user_level, is_admin
-from core.organization import LEADERSHIP_ROLE, UNIT_DEPUTY_ROLE, UNIT_HEAD_ROLE
+from core.permissions import can_view_user, get_user_level, get_visible_users, is_admin
 from core.security import hash_password
 from db.database import get_db
 from db.models.chat import ChatLog, Conversation
@@ -50,6 +50,9 @@ def user_to_dict(user: User) -> dict:
         "kpi_role_template": user.kpi_role_template,
         "permission_level": get_user_level(user),
         "organization_role": user.organization_role,
+        "organization_domain": user.organization_domain,
+        "manager_id": user.manager_id,
+        "management_scope": user.management_scope_json,
         "primary_position_code": user.primary_position_code,
         "personnel_type": user.personnel_type,
         "is_kpi_eligible": user.is_kpi_eligible,
@@ -138,17 +141,8 @@ def list_users(
 ) -> list[dict]:
     """List personnel within organization, unit, or personal visibility."""
 
-    query = database_session.query(User)
-    if not is_admin(current_user) and current_user.organization_role == LEADERSHIP_ROLE:
-        pass
-    elif not is_admin(current_user) and current_user.organization_role in {
-        UNIT_HEAD_ROLE,
-        UNIT_DEPUTY_ROLE,
-    }:
-        query = query.filter(User.department_id == current_user.department_id)
-    elif not is_admin(current_user):
-        query = query.filter(User.id == current_user.id)
-    return [user_to_dict(user) for user in query.order_by(User.full_name).all()]
+    users = database_session.query(User).order_by(User.full_name).all()
+    return [user_to_dict(user) for user in get_visible_users(current_user, users)]
 
 
 @router.get("/position-templates")
@@ -179,7 +173,10 @@ def list_by_department(
         .order_by(User.full_name)
         .all()
     )
-    return [user_to_dict(user) for user in users]
+    return [
+        user_to_dict(user)
+        for user in get_visible_users(current_user, users)
+    ]
 
 
 @router.get("/{user_id}")
@@ -287,6 +284,11 @@ def update_user(
         if user.role == ADMIN_ROLE:
             user.kpi_role_template = ADMIN_TEMPLATE
             user.permission_level = 0
+            user.organization_role = "SYSTEM_ADMIN"
+            user.organization_domain = "SYSTEM"
+            user.is_kpi_eligible = False
+            user.manager_id = None
+            user.management_scope_json = {}
     if payload.kpi_role_template is not None and user.role != ADMIN_ROLE:
         try:
             position_template = get_template_or_error(payload.kpi_role_template)
@@ -311,6 +313,9 @@ def update_user(
         "is_kpi_eligible",
         "source_work_area",
         "import_notes",
+        "organization_domain",
+        "manager_id",
+        "management_scope_json",
     )
     for field_name in profile_fields:
         if field_name in update_data:

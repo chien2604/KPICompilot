@@ -33,9 +33,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { riskColor, riskLevelLabel } from "../utils/formatters";
 
 const MANAGEMENT_FIELDS = [
-  ["unit_result_percent", "Kết quả đơn vị/lĩnh vực phụ trách"],
-  ["implementation_percent", "Năng lực tổ chức thực hiện"],
-  ["cohesion_percent", "Đoàn kết nội bộ"],
+  ["implementation_level", "Năng lực tổ chức thực hiện"],
+  ["cohesion_level", "Đoàn kết nội bộ"],
 ];
 
 /** Render deterministic KPI inputs and results under Decree 335. */
@@ -50,10 +49,14 @@ export default function KpiEvaluationPage() {
   const [selectableUsers, setSelectableUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
+  const isSelf =
+    String(currentUser?.user_id ?? currentUser?.id) === String(userId);
   const canReview =
-    currentUser?.is_admin ||
-    selectableUsers.some((person) => String(person.id) === String(userId));
+    !currentUser?.is_admin &&
+    String(profile?.user?.manager_id) ===
+      String(currentUser?.user_id ?? currentUser?.id);
 
   /** Load profile, official criteria, reviewer inputs, and any existing score. */
   const load = async () => {
@@ -72,8 +75,10 @@ export default function KpiEvaluationPage() {
       setCriteria(criterionData);
       setScore(scoreData);
       form.setFieldsValue({
-        common_scores: inputData.common_scores,
-        management_metrics: inputData.management_metrics,
+        common_scores: isSelf
+          ? inputData.self_scores
+          : inputData.reviewed_scores,
+        management_review: inputData.management_review,
       });
     } catch (error) {
       setProfile(null);
@@ -124,13 +129,21 @@ export default function KpiEvaluationPage() {
     const values = await form.validateFields();
     setSaving(true);
     try {
-      await kpiApi.saveAssessmentInputs(userId, {
-        common_scores: values.common_scores || {},
-        management_metrics: values.management_metrics || {},
-      });
-      const result = await kpiApi.recompute(userId);
-      setScore(result);
-      message.success("Đã lưu đầu vào và tính lại KPI bằng Rule Engine.");
+      if (isSelf) {
+        await kpiApi.saveSelfAssessment(userId, {
+          common_scores: values.common_scores || {},
+        });
+        message.success("Đã lưu tự đánh giá tháng.");
+      } else {
+        await kpiApi.reviewAssessment(userId, {
+          common_scores: values.common_scores || {},
+          implementation_level: values.management_review?.implementation_level,
+          cohesion_level: values.management_review?.cohesion_level,
+        });
+        const result = await kpiApi.recompute(userId);
+        setScore(result);
+        message.success("Đã duyệt đầu vào và tính điểm theo dõi tháng.");
+      }
     } catch (error) {
       message.error(error.response?.data?.detail || "Không thể tính lại KPI.");
     } finally {
@@ -138,11 +151,27 @@ export default function KpiEvaluationPage() {
     }
   };
 
+  /** Confirm a complete deterministic score as a separate authority action. */
+  const confirmTrackingScore = async () => {
+    setConfirming(true);
+    try {
+      const result = await kpiApi.confirmScore(userId);
+      setScore(result);
+      message.success("Đã xác nhận điểm theo dõi của kỳ hiện tại.");
+    } catch (error) {
+      message.error(
+        error.response?.data?.detail || "Không thể xác nhận điểm KPI.",
+      );
+    } finally {
+      setConfirming(false);
+    }
+  };
+
   if (loading) return <Spin fullscreen />;
   if (!profile) return <Empty description="Không có dữ liệu hồ sơ" />;
 
   const target = profile.user;
-  const isManager = ["LEADERSHIP", "UNIT_HEAD", "UNIT_DEPUTY"].includes(
+  const isManager = ["UNIT_HEAD", "UNIT_DEPUTY"].includes(
     target.organization_role,
   );
   const missingInputs = score?.breakdown_json?.missing_inputs || [];
@@ -153,7 +182,7 @@ export default function KpiEvaluationPage() {
       <div className="page-title-row">
         <div>
           <Typography.Title level={3} style={{ margin: 0 }}>
-            Đánh giá KPI theo Nghị định 335
+            Theo dõi KPI tháng theo Nghị định 335
           </Typography.Title>
           <Typography.Text type="secondary">
             Quyết định 283/QĐ-UBND ngày 31/05/2026 · UBND xã Nghĩa Lâm
@@ -212,11 +241,20 @@ export default function KpiEvaluationPage() {
                     </Col>
                     <Col flex="auto">
                       <Typography.Title level={4}>
-                        {score.classification}
+                        {score.reference_level || score.classification}
                       </Typography.Title>
                       <Tag color={riskColor(score.total_score)}>
                         Rủi ro{" "}
                         {riskLevelLabel[score.risk_level] || score.risk_level}
+                      </Tag>
+                      <Tag
+                        color={
+                          score.score_status === "CONFIRMED" ? "green" : "gold"
+                        }
+                      >
+                        {score.score_status === "CONFIRMED"
+                          ? "Đã xác nhận"
+                          : "Chờ xác nhận"}
                       </Tag>
                       {missingInputs.length > 0 && (
                         <Alert
@@ -235,13 +273,17 @@ export default function KpiEvaluationPage() {
             </Col>
           </Row>
 
-          {canReview && (
+          {(isSelf || canReview) && (
             <Form form={form} layout="vertical">
               <Row gutter={[16, 16]} align="top">
                 <Col xs={24} xl={18}>
                   <Card
                     title="Phần A · Tiêu chí chung (30 điểm)"
-                    extra="Điểm do người có thẩm quyền nhập"
+                    extra={
+                      isSelf
+                        ? "Cán bộ tự đánh giá"
+                        : "Người có thẩm quyền duyệt"
+                    }
                     className="kpi-criteria-card"
                   >
                     <div className="kpi-criteria-grid">
@@ -275,27 +317,46 @@ export default function KpiEvaluationPage() {
                     </div>
                   </Card>
 
-                  {isManager && (
+                  {isManager && canReview && (
                     <Card
-                      title="Tỷ lệ bổ sung cho lãnh đạo, quản lý"
+                      title="Chỉ số bổ sung cho lãnh đạo, quản lý"
                       className="kpi-management-card"
                       style={{ marginTop: 16 }}
                     >
                       <Row gutter={16}>
+                        <Col xs={24} md={8}>
+                          <Form.Item label="Kết quả nhân sự trực thuộc">
+                            <InputNumber
+                              disabled
+                              value={
+                                score?.breakdown_json?.breakdown?.[1]?.metrics?.find(
+                                  (item) => item.code === "d",
+                                )?.ratio * 100 || 0
+                              }
+                              addonAfter="%"
+                            />
+                          </Form.Item>
+                        </Col>
                         {MANAGEMENT_FIELDS.map(([code, label]) => (
                           <Col xs={24} md={8} key={code}>
                             <Form.Item
-                              name={["management_metrics", code]}
+                              name={["management_review", code]}
                               label={label}
                               rules={[
-                                { required: true, message: "Chưa nhập tỷ lệ" },
+                                { required: true, message: "Chưa chọn mức" },
                               ]}
                             >
-                              <InputNumber
-                                min={0}
-                                max={100}
-                                addonAfter="%"
-                                style={{ width: "100%" }}
+                              <Select
+                                options={[
+                                  {
+                                    value: "FULL",
+                                    label: "Đáp ứng đầy đủ (100%)",
+                                  },
+                                  {
+                                    value: "PARTIAL",
+                                    label: "Đáp ứng một phần (50%)",
+                                  },
+                                ]}
                               />
                             </Form.Item>
                           </Col>
@@ -348,8 +409,18 @@ export default function KpiEvaluationPage() {
                   loading={saving}
                   onClick={saveAndRecompute}
                 >
-                  Lưu và tính KPI
+                  {isSelf ? "Lưu tự đánh giá" : "Lưu và tính điểm theo dõi"}
                 </Button>
+                {canReview && score && score.score_status !== "CONFIRMED" && (
+                  <Button
+                    icon={<CheckCircleOutlined />}
+                    loading={confirming}
+                    disabled={missingInputs.length > 0}
+                    onClick={confirmTrackingScore}
+                  >
+                    Xác nhận điểm
+                  </Button>
+                )}
               </div>
             </Form>
           )}

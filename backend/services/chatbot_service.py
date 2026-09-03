@@ -702,7 +702,7 @@ class ChatbotService:
             kpi = data.get("my_kpi")
             if not kpi:
                 return "Chưa có dữ liệu KPI của bạn cho kỳ này."
-            return f"KPI của bạn kỳ này: {kpi['total_score']} điểm — Phân loại: {kpi['classification']} — Rủi ro: {kpi['risk_level']}."
+            return f"Điểm theo dõi tháng của bạn: {kpi['total_score']} điểm — Mức tham chiếu: {kpi['classification']} — Rủi ro vận hành: {kpi['risk_level']}."
         if intent == "KPI_RISK_USERS":
             names = [item["name"] for item in data.get("risk_users", [])[:5]]
             return "Nhóm có nguy cơ không đạt KPI: " + (

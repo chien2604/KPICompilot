@@ -1,15 +1,16 @@
 # Triển khai Docker - AI KPI Copilot UBND xã Nghĩa Lâm
 
-Hệ thống được đóng gói thành ba service:
+Hệ thống được đóng gói thành bốn service theo mô hình gateway một cổng:
 
-| Service | Image | Cổng host mặc định | Dữ liệu bền vững |
-| --- | --- | --- | --- |
-| `frontend` | React build + Nginx | `5191` | Không |
-| `backend` | FastAPI + AI/GraphRAG | `127.0.0.1:8017` | `backend_storage` |
-| `postgres` | PostgreSQL 16 + pgvector | `127.0.0.1:5433` | `postgres_data` |
+| Service | Vai trò | Kết nối |
+| --- | --- | --- |
+| `nginx` | Gateway duy nhất | `127.0.0.1:${PUBLIC_PORT:-5191}` → `80` |
+| `frontend` | React build + Nginx nội bộ | `frontend:80` |
+| `backend` | FastAPI + AI/GraphRAG nội bộ | `backend:8017` |
+| `postgres` | PostgreSQL 16 + pgvector nội bộ | `postgres:5432` |
 
-Nginx chuyển tiếp mọi request `/api/*` tới backend qua mạng Docker nội bộ. Vì
-vậy trình duyệt chỉ cần truy cập cổng frontend và không cần biết địa chỉ backend.
+Gateway Nginx chuyển `/` tới frontend và giữ nguyên `/api` khi chuyển request tới
+backend. Frontend, backend và PostgreSQL không publish cổng trực tiếp lên host.
 
 ## 1. Yêu cầu máy chủ
 
@@ -17,7 +18,8 @@ vậy trình duyệt chỉ cần truy cập cổng frontend và không cần bi�
 - RAM tối thiểu 4 GB; khuyến nghị 8 GB nếu bật embedding thật.
 - Docker Engine 24+ và Docker Compose plugin 2.20+.
 - Git.
-- Mở cổng TCP `5191` trên firewall/security group.
+- Một reverse proxy trên host hoặc SSH tunnel nếu cần truy cập từ máy khác, vì
+  gateway container chỉ bind vào `127.0.0.1`.
 
 Kiểm tra:
 
@@ -40,6 +42,7 @@ nano .env.docker
 Thay tối thiểu các biến sau:
 
 ```dotenv
+PUBLIC_PORT=5191
 POSTGRES_PASSWORD=mat_khau_postgres_dai_va_ngau_nhien
 JWT_SECRET_KEY=chuoi_64_ky_tu_vua_tao
 BOOTSTRAP_ADMIN_EMAIL=admin@example.gov.vn
@@ -52,8 +55,8 @@ Nếu dùng OpenRouter/OpenAI, khai báo thêm:
 OPENAI_API_KEY=your-api-key
 OPENAI_MODEL=openai/gpt-4o-mini
 OPENAI_BASE_URL=https://openrouter.ai/api/v1
-OPENROUTER_SITE_URL=http://IP_SERVER:5191
-CORS_ORIGINS=http://IP_SERVER:5191
+OPENROUTER_SITE_URL=https://kpi.example.gov.vn
+CORS_ORIGINS=https://kpi.example.gov.vn
 ```
 
 Không commit `.env.docker`; file này đã được đưa vào `.gitignore`. Mật khẩu
@@ -112,9 +115,10 @@ docker compose --env-file .env.docker ps
 
 Truy cập:
 
-- Ứng dụng: `http://IP_SERVER:5191`
-- Backend health trên chính server: `http://127.0.0.1:8017/health`
-- Swagger trên chính server: `http://127.0.0.1:8017/docs`
+- Ứng dụng trên server: `http://127.0.0.1:${PUBLIC_PORT}`
+- API: `http://127.0.0.1:${PUBLIC_PORT}/api/...`
+- Backend và Swagger không được publish trực tiếp; truy cập nội bộ qua Docker
+  network khi cần vận hành.
 
 Backend tự chờ PostgreSQL, tạo extension `vector`, tạo schema và chạy toàn bộ
 migration mỗi lần container khởi động. Các thao tác này có thể chạy lặp an toàn.
@@ -126,11 +130,15 @@ migration mỗi lần container khởi động. Các thao tác này có thể ch
 ## 5. Kiểm tra sau triển khai
 
 ```bash
-curl --fail http://localhost:5191/nginx-health
-curl --fail http://127.0.0.1:8017/health
+curl --fail http://127.0.0.1:${PUBLIC_PORT:-5191}/nginx-health
+curl --include http://127.0.0.1:${PUBLIC_PORT:-5191}/api/auth/me
 docker compose --env-file .env.docker ps
 docker compose --env-file .env.docker logs --tail=100 backend
+docker compose --env-file .env.docker logs --tail=100 nginx
 ```
+
+Request `/api/auth/me` trả `401 Unauthorized` khi không có token là kết quả mong
+đợi và xác nhận gateway đã chuyển nguyên đường dẫn `/api` tới FastAPI.
 
 Đăng nhập bằng tài khoản `BOOTSTRAP_ADMIN_EMAIL` và kiểm tra các màn Tổng quan,
 Heatmap, Hồ sơ, Công việc, Minh chứng, AI đánh giá, AI Copilot và Báo cáo.
@@ -191,18 +199,19 @@ docker run --rm \
   alpine:3.21 tar -czf /backup/backend_storage.tar.gz -C /data .
 ```
 
-## 9. Mở backend ra ngoài nếu thật sự cần
+## 9. Truy cập từ bên ngoài server
 
-Mặc định cổng `8017` và `5433` chỉ bind vào loopback để không công khai API và
-database. Nếu cần truy cập Swagger từ máy khác, đổi tạm:
+Compose chỉ publish gateway vào loopback. Trên production, cấu hình reverse proxy
+HTTPS của host chuyển domain tới `http://127.0.0.1:${PUBLIC_PORT}`. Không thêm
+`ports` cho frontend, backend hoặc PostgreSQL.
 
-```dotenv
-BACKEND_BIND_ADDRESS=0.0.0.0
+Có thể kiểm tra tạm từ máy quản trị bằng SSH tunnel:
+
+```bash
+ssh -L 5191:127.0.0.1:5191 user@IP_SERVER
 ```
 
-Sau đó chạy lại `docker compose up -d`. Không mở cổng PostgreSQL `5433` ra
-Internet. Với domain production, nên đặt HTTPS reverse proxy phía trước cổng
-`5191` thay vì công khai thêm backend.
+Sau đó mở `http://127.0.0.1:5191` trên máy quản trị.
 
 ## 10. Xử lý lỗi thường gặp
 
@@ -213,16 +222,18 @@ docker compose --env-file .env.docker ps
 docker compose --env-file .env.docker logs --tail=200 postgres
 docker compose --env-file .env.docker logs --tail=200 backend
 docker compose --env-file .env.docker logs --tail=200 frontend
+docker compose --env-file .env.docker logs --tail=200 nginx
 ```
 
 Kiểm tra cổng đang được sử dụng:
 
 ```bash
-sudo ss -ltnp | grep -E ':5191|:8017|:5433'
+sudo ss -ltnp | grep ":${PUBLIC_PORT:-5191}"
 ```
 
-Nếu cổng bị chiếm, dừng tiến trình cũ hoặc đổi `FRONTEND_PORT`, `BACKEND_PORT`,
-`POSTGRES_PORT` trong `.env.docker` rồi chạy `docker compose up -d` lại.
+Nếu cổng bị chiếm, dừng tiến trình cũ hoặc đổi `PUBLIC_PORT` trong `.env.docker`
+rồi chạy `docker compose up -d` lại. Các biến cũ `FRONTEND_PORT`,
+`BACKEND_PORT`, `POSTGRES_PORT` và `*_BIND_ADDRESS` không còn được sử dụng.
 
 ## 11. Push Git từ máy phát triển
 
@@ -281,11 +292,5 @@ docker compose --env-file .env.docker up -d
 docker compose --env-file .env.docker ps
 ```
 
-Mở firewall Ubuntu nếu đang bật UFW:
-
-```bash
-sudo ufw allow 5191/tcp
-sudo ufw status
-```
-
-Ứng dụng sẵn sàng tại `http://IP_SERVER:5191`.
+Gateway chỉ lắng nghe trên loopback nên không cần mở `PUBLIC_PORT` bằng UFW.
+Hãy công khai ứng dụng qua reverse proxy HTTPS của host hoặc SSH tunnel như mục 9.

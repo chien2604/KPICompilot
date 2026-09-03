@@ -14,3 +14,4 @@ frontend/.env
 __pycache__/
 *.pyc
 .DS_Store
+DEPLOY_REFACTOR_CHANGELOG.md

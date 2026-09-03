@@ -7,6 +7,7 @@ from db.models.chat import (
 from db.models.departments import Department
 from db.models.evidences import TaskEvidence
 from db.models.kpi import (
+    AuditLog,
     DocumentTypeRule,
     KPIAssessmentInput,
     KPICriterion,
@@ -20,6 +21,7 @@ from db.models.tasks import Task, TaskAssignment
 from db.models.users import User, UserWorkArea
 
 __all__ = [
+    "AuditLog",
     "ChatLog",
     "Conversation",
     "ConversationMessage",

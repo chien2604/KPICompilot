@@ -55,6 +55,8 @@ const WEEKDAYS = [
 const ORGANIZATION_ROLE_TAG = {
   ADMIN: { label: "Quản trị viên", color: "red" },
   LEADERSHIP: { label: "Lãnh đạo xã", color: "gold" },
+  UBND_AUTHORITY: { label: "Thẩm quyền UBND", color: "gold" },
+  SYSTEM_ADMIN: { label: "Quản trị kỹ thuật", color: "red" },
   UNIT_HEAD: { label: "Trưởng đơn vị", color: "blue" },
   UNIT_DEPUTY: { label: "Phó trưởng đơn vị", color: "cyan" },
   SPECIALIST: { label: "Chuyên môn", color: "geekblue" },
@@ -115,7 +117,7 @@ export default function AppLayout() {
 
   const menuItems = [
     { key: "/dashboard", icon: <BarChartOutlined />, label: "Tổng quan" },
-    ...(["LEADERSHIP", "UNIT_HEAD", "UNIT_DEPUTY"].includes(
+    ...(["UBND_AUTHORITY", "UNIT_HEAD", "UNIT_DEPUTY"].includes(
       user?.organization_role,
     ) || isAdmin
       ? [{ key: "/heatmap", icon: <HeatMapOutlined />, label: "Heatmap" }]

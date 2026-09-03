@@ -93,7 +93,7 @@ export default function HeatmapPage() {
       </Card>
 
       {/* Summary bar */}
-      <Row gutter={[16, 16]}>
+      <Row gutter={[16, 16]} className="heatmap-summary-row">
         {/* Tổng nhân lực */}
         <Col xs={24} md={8}>
           <Card className="heatmap-summary-card">

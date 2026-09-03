@@ -1,4 +1,7 @@
+import hashlib
 import json
+import logging
+from pathlib import Path
 
 from ai_layer.evidence_analyzer import EvidenceAnalyzer
 from ai_layer.rag.graph_rag_service import GraphRAGService
@@ -8,11 +11,14 @@ from db.models.users import User
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
+from services.audit_service import record_audit_event
 from services.file_storage import FileStorage
+
+logger = logging.getLogger(__name__)
 
 
 class EvidenceService:
-    """Represent evidence service data and behavior."""
+    """Persist task outputs and keep AI analysis advisory."""
 
     def __init__(self, db: Session) -> None:
         """Initialize the evidence service."""
@@ -21,19 +27,22 @@ class EvidenceService:
         self.storage = FileStorage()
 
     def upload_and_process(
-        self, task_id: int, uploaded_by: int, file: UploadFile
+        self, task_id: int, assignment_id: int, uploaded_by: int, file: UploadFile
     ) -> TaskEvidence:
-        """Upload the and process."""
+        """Store a file output, then attempt advisory AI analysis."""
 
         file_name, file_path = self.storage.save_upload(file)
         evidence = TaskEvidence(
             task_id=task_id,
+            assignment_id=assignment_id,
             uploaded_by=uploaded_by,
             file_name=file_name,
             file_type=file.content_type,
             file_path=file_path,
             status="PROCESSING",
+            verification_status="PENDING_REVIEW",
         )
+        evidence.file_hash_sha256 = hashlib.sha256(Path(file_path).read_bytes()).hexdigest()
         self.db.add(evidence)
         self.db.flush()
         try:
@@ -72,22 +81,48 @@ class EvidenceService:
                 ensure_ascii=False,
             )
             evidence.status = "ANALYZED"
+            evidence.ai_analysis_json = analysis
+            record_audit_event(
+                self.db,
+                actor_id=uploaded_by,
+                action="PRODUCT_SUBMITTED",
+                entity_type="TASK_EVIDENCE",
+                entity_id=evidence.id,
+                after={"source_type": evidence.source_type, "assignment_id": assignment_id},
+            )
         except Exception as exc:
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("Không thể phân tích sản phẩm %s bằng AI", file_name)
             self.db.rollback()
-            # Mất transaction nên phải tạo lại evidence
             new_evidence = TaskEvidence(
                 task_id=task_id,
+                assignment_id=assignment_id,
                 uploaded_by=uploaded_by,
                 file_name=file_name,
                 file_type=file.content_type,
                 file_path=file_path,
-                status="FAILED",
-                ai_summary=f"Lỗi hệ thống: {exc}",
+                file_hash_sha256=evidence.file_hash_sha256,
+                status="AI_CHECK_FAILED",
+                verification_status="PENDING_REVIEW",
+                ai_summary=(
+                    "AI chưa thể phân tích sản phẩm. "
+                    "Người có thẩm quyền vẫn có thể kiểm tra và xác minh."
+                ),
             )
             self.db.add(new_evidence)
+            self.db.flush()
+            record_audit_event(
+                self.db,
+                actor_id=uploaded_by,
+                action="PRODUCT_SUBMITTED",
+                entity_type="TASK_EVIDENCE",
+                entity_id=new_evidence.id,
+                after={
+                    "source_type": new_evidence.source_type,
+                    "assignment_id": assignment_id,
+                    "ai_status": "FAILED",
+                    "error_type": type(exc).__name__,
+                },
+            )
             self.db.commit()
             self.db.refresh(new_evidence)
             return new_evidence
@@ -96,8 +131,43 @@ class EvidenceService:
         self.db.refresh(evidence)
         return evidence
 
+    def create_reference(
+        self, *, task_id: int, assignment_id: int, uploaded_by: int, payload
+    ) -> TaskEvidence:
+        """Create a linked output without downloading or duplicating the source file."""
+
+        evidence = TaskEvidence(
+            task_id=task_id,
+            assignment_id=assignment_id,
+            uploaded_by=uploaded_by,
+            result_type=payload.result_type,
+            source_type="EXTERNAL_LINK",
+            source_system=payload.source_system,
+            source_record_id=payload.source_record_id,
+            document_number=payload.document_number,
+            metadata_json=payload.metadata,
+            file_name=payload.title,
+            file_type="text/uri-list",
+            file_path=str(payload.url),
+            status="UPLOADED",
+            verification_status="PENDING_REVIEW",
+        )
+        self.db.add(evidence)
+        self.db.flush()
+        record_audit_event(
+            self.db,
+            actor_id=uploaded_by,
+            action="PRODUCT_SUBMITTED",
+            entity_type="TASK_EVIDENCE",
+            entity_id=evidence.id,
+            after={"source_type": evidence.source_type, "assignment_id": assignment_id},
+        )
+        self.db.commit()
+        self.db.refresh(evidence)
+        return evidence
+
     def analyze(self, evidence_id: int) -> TaskEvidence:
-        """Analyze the operation."""
+        """Run advisory content analysis without changing human verification."""
 
         evidence = self.db.get(TaskEvidence, evidence_id)
         if not evidence:

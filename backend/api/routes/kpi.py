@@ -3,13 +3,19 @@ from datetime import datetime
 from core.deps import get_current_user
 from core.organization import (
     LEADERSHIP_ROLE,
-    OUT_OF_SCOPE_ROLE,
-    SPECIALIST_ROLE,
     UNIT_DEPUTY_ROLE,
     UNIT_HEAD_ROLE,
     USER_ROLE,
 )
-from core.permissions import can_score, can_view_user, get_user_level, is_admin
+from core.permissions import (
+    can_confirm_kpi,
+    can_review_common_criteria,
+    can_score,
+    can_self_assess,
+    can_view_user,
+    get_visible_users,
+    is_admin,
+)
 from db.database import get_db
 from db.models.departments import Department
 from db.models.kpi import (
@@ -22,23 +28,42 @@ from db.models.kpi import (
 from db.models.tasks import Task, TaskAssignment
 from db.models.users import User
 from fastapi import APIRouter, Depends, HTTPException
+from schemas.kpi import (
+    KPIAssessmentInputUpdate,
+    KPIReviewerAssessmentUpdate,
+    KPISelfAssessmentUpdate,
+)
+from services.audit_service import record_audit_event
 from services.kpi_engine import KPIEngine
-from schemas.kpi import KPIAssessmentInputUpdate
-from sqlalchemy import func, or_
+from services.task_service import effective_task_status_expression
+from services.work_catalog_service import filter_assignable_catalog
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/kpi", tags=["kpi"])
 
 
+def visible_user_ids(database_session: Session, current_user: User) -> list[int]:
+    """Resolve personnel IDs through the central organization visibility rules."""
+
+    users = database_session.query(User).all()
+    return [user.id for user in get_visible_users(current_user, users)]
+
+
 def resolve_period_month(month: str | None) -> str:
-    """Return a validated month or the current calendar month."""
+    """Return a validated monthly or quarterly tracking period."""
 
     period_month = month or datetime.now().strftime("%Y-%m")
     try:
-        datetime.strptime(period_month, "%Y-%m")
+        if "-Q" in period_month:
+            year, quarter = period_month.split("-Q")
+            if len(year) != 4 or not year.isdigit() or quarter not in {"1", "2", "3", "4"}:
+                raise ValueError
+        else:
+            datetime.strptime(period_month, "%Y-%m")
     except ValueError as error:
         raise HTTPException(
-            status_code=400, detail="Kỳ KPI phải có định dạng YYYY-MM."
+            status_code=400, detail="Kỳ theo dõi phải có định dạng YYYY-MM hoặc YYYY-Q1."
         ) from error
     return period_month
 
@@ -48,10 +73,9 @@ def apply_task_scope(query, current_user: User):
 
     if is_admin(current_user) or current_user.organization_role == LEADERSHIP_ROLE:
         return query
-    if current_user.organization_role in {UNIT_HEAD_ROLE, UNIT_DEPUTY_ROLE}:
-        return query.filter(Task.department_id == current_user.department_id)
+    allowed_user_ids = visible_user_ids(query.session, current_user)
     return query.join(TaskAssignment, TaskAssignment.task_id == Task.id).filter(
-        TaskAssignment.user_id == current_user.id
+        TaskAssignment.user_id.in_(allowed_user_ids)
     )
 
 
@@ -60,11 +84,9 @@ def apply_score_scope(query, current_user: User):
 
     if is_admin(current_user) or current_user.organization_role == LEADERSHIP_ROLE:
         return query
-    if current_user.organization_role in {UNIT_HEAD_ROLE, UNIT_DEPUTY_ROLE}:
-        return query.join(User, User.id == KPIScore.user_id).filter(
-            User.department_id == current_user.department_id
-        )
-    return query.filter(KPIScore.user_id == current_user.id)
+    return query.filter(
+        KPIScore.user_id.in_(visible_user_ids(query.session, current_user))
+    )
 
 
 @router.get("/dashboard")
@@ -76,26 +98,24 @@ def dashboard(
     """Return KPI and task summary data within the current user's scope."""
 
     period_month = resolve_period_month(month)
+    allowed_user_ids = visible_user_ids(database_session, current_user)
     user_query = database_session.query(User).filter(User.role == USER_ROLE)
-    if not is_admin(current_user) and current_user.organization_role in {
-        UNIT_HEAD_ROLE,
-        UNIT_DEPUTY_ROLE,
-    }:
-        user_query = user_query.filter(User.department_id == current_user.department_id)
-    elif not is_admin(current_user) and current_user.organization_role not in {
-        LEADERSHIP_ROLE,
-    }:
-        user_query = user_query.filter(User.id == current_user.id)
+    user_query = user_query.filter(User.id.in_(allowed_user_ids))
 
+    status_expression = effective_task_status_expression().label("effective_status")
     task_count_query = apply_task_scope(
-        database_session.query(Task.status, func.count(func.distinct(Task.id))),
+        database_session.query(
+            status_expression,
+            func.count(func.distinct(Task.id)),
+        ),
         current_user,
     )
-    task_counts = dict(task_count_query.group_by(Task.status).all())
+    task_counts = dict(task_count_query.group_by(status_expression).all())
 
     average_query = apply_score_scope(
         database_session.query(func.avg(KPIScore.total_score)).filter(
-            KPIScore.period_month == period_month
+            KPIScore.period_month == period_month,
+            KPIScore.score_status == "CONFIRMED",
         ),
         current_user,
     )
@@ -126,7 +146,7 @@ def dashboard(
         "kpi_eligible_users": user_query.filter(User.is_kpi_eligible.is_(True)).count(),
         "active_users": user_query.filter(User.is_active.is_(True)).count(),
         "avg_kpi": round(float(average_kpi), 1) if average_kpi is not None else None,
-        "task_completed": task_counts.get("COMPLETED", 0),
+        "task_completed": task_counts.get("VERIFIED", 0),
         "task_total": sum(task_counts.values()),
         "task_overdue": task_counts.get("OVERDUE", 0),
         "task_status": task_counts,
@@ -136,6 +156,7 @@ def dashboard(
             ranking_department_id,
             descending=True,
             limit=5,
+            user_ids=allowed_user_ids,
         )
         if show_rankings
         else [],
@@ -145,6 +166,7 @@ def dashboard(
             ranking_department_id,
             descending=False,
             limit=5,
+            user_ids=allowed_user_ids,
         )
         if show_rankings
         else [],
@@ -164,6 +186,7 @@ def heatmap(
     """Return all visible units, including units that do not yet have KPI scores."""
 
     period_month = resolve_period_month(month)
+    allowed_user_ids = visible_user_ids(database_session, current_user)
     department_query = database_session.query(Department).filter(
         Department.unit_type.in_(("LEADERSHIP", "UNIT"))
     )
@@ -171,7 +194,10 @@ def heatmap(
         department_query = department_query.filter(Department.id == current_user.department_id)
     result = []
     for department in department_query.order_by(Department.id).all():
-        users = database_session.query(User).filter(User.department_id == department.id)
+        users = database_session.query(User).filter(
+            User.department_id == department.id,
+            User.id.in_(allowed_user_ids),
+        )
         eligible_ids = [user.id for user in users.filter(User.is_kpi_eligible.is_(True)).all()]
         average_kpi = None
         if eligible_ids:
@@ -179,6 +205,7 @@ def heatmap(
                 database_session.query(func.avg(KPIScore.total_score))
                 .filter(
                     KPIScore.period_month == period_month,
+                    KPIScore.score_status == "CONFIRMED",
                     KPIScore.user_id.in_(eligible_ids),
                 )
                 .scalar()
@@ -245,6 +272,9 @@ def user_profile(
             "department": user.department.name if user.department else None,
             "kpi_role_template": user.kpi_role_template,
             "organization_role": user.organization_role,
+            "organization_domain": user.organization_domain,
+            "manager_id": user.manager_id,
+            "management_scope": user.management_scope_json,
             "primary_position_code": user.primary_position_code,
             "personnel_type": user.personnel_type,
             "is_kpi_eligible": user.is_kpi_eligible,
@@ -262,7 +292,8 @@ def user_profile(
                 "title": task.title,
                 "status": task.status,
                 "deadline": task.deadline,
-                "document_type": task.document_type,
+                "work_catalog_code": task.catalog_code_snapshot,
+                "conversion_factor": task.conversion_factor_snapshot,
             }
             for task in tasks
         ],
@@ -310,14 +341,26 @@ def recompute(
     user = database_session.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Không tìm thấy cán bộ.")
-    if not is_admin(current_user) and not can_score(current_user, user):
+    if not can_review_common_criteria(current_user, user):
         raise HTTPException(
             status_code=403, detail="Không có quyền chấm KPI người này."
         )
     try:
-        return _score_dict(
-            KPIEngine(database_session).recompute_and_save(user_id, period_month)
+        score = KPIEngine(database_session).recompute_and_save(user_id, period_month)
+        record_audit_event(
+            database_session,
+            actor_id=current_user.id,
+            action="KPI_RECOMPUTED",
+            entity_type="KPI_SCORE",
+            entity_id=score.id,
+            after={
+                "total_score": score.total_score,
+                "period_month": period_month,
+                "score_status": score.score_status,
+            },
         )
+        database_session.commit()
+        return _score_dict(score)
     except ValueError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
 
@@ -365,22 +408,12 @@ def work_catalog(
         raise HTTPException(status_code=403, detail="Không có quyền xem danh mục của người này.")
     if not target.is_kpi_eligible:
         return []
-    filters = [WorkCatalogItem.catalog_scope == "COMMON"]
-    if target.organization_role in {LEADERSHIP_ROLE, UNIT_HEAD_ROLE, UNIT_DEPUTY_ROLE}:
-        filters.append(WorkCatalogItem.catalog_scope == "LEADERSHIP")
-    if target.department is not None:
-        area_codes = [area.area_code for area in target.work_areas]
-        area_filters = [WorkCatalogItem.code.like(f"{code}.%") for code in area_codes]
-        department_filter = WorkCatalogItem.department_code == target.department.code
-        if target.organization_role in {UNIT_HEAD_ROLE, UNIT_DEPUTY_ROLE} or not area_filters:
-            filters.append(department_filter)
-        else:
-            filters.append(department_filter & or_(*area_filters))
-    rows = (
+    rows = filter_assignable_catalog(
         database_session.query(WorkCatalogItem)
-        .filter(WorkCatalogItem.is_active.is_(True), or_(*filters))
+        .filter(WorkCatalogItem.is_active.is_(True))
         .order_by(WorkCatalogItem.code)
-        .all()
+        .all(),
+        target,
     )
     return [
         {
@@ -428,6 +461,10 @@ def get_assessment_inputs(
         "period_month": period_month,
         "common_scores": row.common_scores_json if row else {},
         "management_metrics": row.management_metrics_json if row else {},
+        "self_scores": row.self_scores_json if row else {},
+        "reviewed_scores": row.reviewed_scores_json if row else {},
+        "management_review": row.management_review_json if row else {},
+        "reviewed_by": row.reviewed_by if row else None,
         "updated_at": row.updated_at if row else None,
     }
 
@@ -440,13 +477,13 @@ def save_assessment_inputs(
     database_session: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    """Validate and persist reviewer inputs without invoking an LLM."""
+    """Keep old clients compatible while enforcing the new review workflow."""
 
     period_month = resolve_period_month(month)
     target = database_session.get(User, user_id)
     if target is None:
         raise HTTPException(status_code=404, detail="Không tìm thấy cán bộ.")
-    if not is_admin(current_user) and not can_score(current_user, target):
+    if not can_score(current_user, target):
         raise HTTPException(status_code=403, detail="Không có quyền chấm cán bộ này.")
     valid_criteria = {
         criterion.criterion_code: criterion.max_score
@@ -458,13 +495,14 @@ def save_assessment_inputs(
     for code, score in payload.common_scores.items():
         if code not in valid_criteria or not 0 <= score <= valid_criteria[code]:
             raise HTTPException(status_code=400, detail=f"Điểm tiêu chí {code} không hợp lệ.")
-    for code, percentage in payload.management_metrics.items():
-        if code not in {
-            "unit_result_percent",
-            "implementation_percent",
-            "cohesion_percent",
-        } or not 0 <= percentage <= 100:
-            raise HTTPException(status_code=400, detail=f"Tỷ lệ {code} không hợp lệ.")
+    if payload.management_metrics:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Không còn hỗ trợ nhập phần trăm quản lý tự do. "
+                "Hãy dùng mức xác nhận tại API /review."
+            ),
+        )
     row = (
         database_session.query(KPIAssessmentInput)
         .filter(
@@ -476,11 +514,179 @@ def save_assessment_inputs(
     if row is None:
         row = KPIAssessmentInput(user_id=user_id, period_month=period_month)
         database_session.add(row)
+        database_session.flush()
+    if row.self_assessed_at is None:
+        raise HTTPException(status_code=409, detail="Cán bộ chưa hoàn thành tự đánh giá.")
+    before = dict(row.reviewed_scores_json or {})
     row.common_scores_json = payload.common_scores
-    row.management_metrics_json = payload.management_metrics
+    row.reviewed_scores_json = payload.common_scores
     row.reviewed_by = current_user.id
+    row.reviewed_at = datetime.utcnow()
+    record_audit_event(
+        database_session,
+        actor_id=current_user.id,
+        action="ASSESSMENT_REVIEWED",
+        entity_type="KPI_ASSESSMENT",
+        entity_id=row.id,
+        before={"scores": before},
+        after={"scores": payload.common_scores},
+        reason="Compatibility endpoint",
+    )
     database_session.commit()
     return get_assessment_inputs(user_id, period_month, database_session, current_user)
+
+
+def _assessment_row(
+    database_session: Session, user_id: int, period_month: str
+) -> KPIAssessmentInput:
+    """Load or initialize one monthly assessment input row."""
+
+    row = database_session.query(KPIAssessmentInput).filter(
+        KPIAssessmentInput.user_id == user_id,
+        KPIAssessmentInput.period_month == period_month,
+    ).first()
+    if row is None:
+        row = KPIAssessmentInput(user_id=user_id, period_month=period_month)
+        database_session.add(row)
+        database_session.flush()
+    return row
+
+
+def _validate_common_scores(
+    database_session: Session, target: User, scores: dict[str, float]
+) -> None:
+    """Validate common scores against the target's configured KPI template."""
+
+    limits = {
+        criterion.criterion_code: criterion.max_score
+        for criterion in database_session.query(KPICriterion)
+        .join(KPITemplate)
+        .filter(KPITemplate.code == target.kpi_role_template)
+        .all()
+    }
+    for code, score in scores.items():
+        if code not in limits or not 0 <= score <= limits[code]:
+            raise HTTPException(
+                status_code=400, detail=f"Điểm tiêu chí {code} không hợp lệ."
+            )
+
+
+@router.put("/users/{user_id}/self-assessment")
+def save_self_assessment(
+    user_id: int,
+    payload: KPISelfAssessmentUpdate,
+    month: str | None = None,
+    database_session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Save the employee's monthly self-assessment before reviewer input."""
+
+    target = database_session.get(User, user_id)
+    if target is None or not can_self_assess(current_user, target):
+        raise HTTPException(status_code=400, detail="Hồ sơ không thuộc phạm vi KPI hiện hành.")
+    period_month = resolve_period_month(month)
+    _validate_common_scores(database_session, target, payload.common_scores)
+    row = _assessment_row(database_session, user_id, period_month)
+    before = dict(row.self_scores_json or {})
+    row.self_scores_json = payload.common_scores
+    row.self_assessed_at = datetime.utcnow()
+    record_audit_event(
+        database_session,
+        actor_id=current_user.id,
+        action="SELF_ASSESSMENT_SAVED",
+        entity_type="KPI_ASSESSMENT",
+        entity_id=row.id,
+        before=before,
+        after=payload.common_scores,
+    )
+    database_session.commit()
+    return get_assessment_inputs(
+        user_id, period_month, database_session, current_user
+    )
+
+
+@router.put("/users/{user_id}/review")
+def review_assessment(
+    user_id: int,
+    payload: KPIReviewerAssessmentUpdate,
+    month: str | None = None,
+    database_session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Review self-assessment through the configured direct authority."""
+
+    target = database_session.get(User, user_id)
+    if target is None or not can_review_common_criteria(current_user, target):
+        raise HTTPException(status_code=403, detail="Không có thẩm quyền duyệt đánh giá này.")
+    period_month = resolve_period_month(month)
+    _validate_common_scores(database_session, target, payload.common_scores)
+    levels = {payload.implementation_level, payload.cohesion_level} - {None}
+    if levels - {"FULL", "PARTIAL"}:
+        raise HTTPException(status_code=400, detail="Mức quản lý chỉ nhận FULL hoặc PARTIAL.")
+    row = _assessment_row(database_session, user_id, period_month)
+    if row.self_assessed_at is None:
+        raise HTTPException(status_code=409, detail="Cán bộ chưa hoàn thành tự đánh giá.")
+    before = {
+        "scores": row.reviewed_scores_json,
+        "management": row.management_review_json,
+    }
+    row.reviewed_scores_json = payload.common_scores
+    row.common_scores_json = payload.common_scores
+    row.management_review_json = {
+        "implementation_level": payload.implementation_level,
+        "cohesion_level": payload.cohesion_level,
+    }
+    row.reviewed_by = current_user.id
+    row.reviewed_at = datetime.utcnow()
+    row.review_note = payload.note
+    record_audit_event(
+        database_session,
+        actor_id=current_user.id,
+        action="ASSESSMENT_REVIEWED",
+        entity_type="KPI_ASSESSMENT",
+        entity_id=row.id,
+        before=before,
+        after={"scores": payload.common_scores, "management": row.management_review_json},
+        reason=payload.note,
+    )
+    database_session.commit()
+    return get_assessment_inputs(
+        user_id, period_month, database_session, current_user
+    )
+
+
+@router.post("/users/{user_id}/score/confirm")
+def confirm_score(
+    user_id: int,
+    month: str | None = None,
+    database_session: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Confirm a complete deterministic score through the direct reviewer."""
+
+    target = database_session.get(User, user_id)
+    if target is None or not can_confirm_kpi(current_user, target):
+        raise HTTPException(status_code=403, detail="Không có thẩm quyền xác nhận điểm này.")
+    period_month = resolve_period_month(month)
+    score = database_session.query(KPIScore).filter(
+        KPIScore.user_id == user_id,
+        KPIScore.period_month == period_month,
+    ).order_by(KPIScore.created_at.desc()).first()
+    if score is None or score.breakdown_json.get("is_complete") is not True:
+        raise HTTPException(status_code=409, detail="Điểm chưa đầy đủ dữ liệu để xác nhận.")
+    score.score_status = "CONFIRMED"
+    score.confirmed_by = current_user.id
+    score.confirmed_at = datetime.utcnow()
+    record_audit_event(
+        database_session,
+        actor_id=current_user.id,
+        action="KPI_SCORE_CONFIRMED",
+        entity_type="KPI_SCORE",
+        entity_id=score.id,
+        after={"total_score": score.total_score, "period_month": period_month},
+    )
+    database_session.commit()
+    return _score_dict(score)
 
 
 @router.get("/ranking")
@@ -499,7 +705,7 @@ def ranking(
         UNIT_DEPUTY_ROLE,
     }:
         raise HTTPException(status_code=403, detail="Không có quyền xem xếp hạng KPI.")
-    if not is_admin(current_user):
+    if not is_admin(current_user) and current_user.organization_role != LEADERSHIP_ROLE:
         department_id = current_user.department_id
     return _ranking_query(
         database_session,
@@ -507,6 +713,7 @@ def ranking(
         department_id,
         descending=True,
         limit=100,
+        user_ids=visible_user_ids(database_session, current_user),
     )
 
 
@@ -516,17 +723,23 @@ def _ranking_query(
     department_id: int | None,
     descending: bool,
     limit: int,
+    user_ids: list[int] | None = None,
 ) -> list[dict]:
     """Query ranked KPI scores for an optional organization unit."""
 
     query = (
         database_session.query(User, KPIScore)
         .join(KPIScore, KPIScore.user_id == User.id)
-        .filter(KPIScore.period_month == month)
+        .filter(
+            KPIScore.period_month == month,
+            KPIScore.score_status == "CONFIRMED",
+        )
         .filter(User.is_kpi_eligible.is_(True))
     )
     if department_id is not None:
         query = query.filter(User.department_id == department_id)
+    if user_ids is not None:
+        query = query.filter(User.id.in_(user_ids))
     order_column = (
         KPIScore.total_score.desc() if descending else KPIScore.total_score.asc()
     )
@@ -537,6 +750,7 @@ def _ranking_query(
             "department": user.department.name if user.department else None,
             "score": score.total_score,
             "classification": score.classification,
+            "reference_level": score.classification,
             "risk_level": score.risk_level,
         }
         for user, score in query.order_by(order_column).limit(limit).all()
@@ -551,6 +765,7 @@ def _kpi_trend(database_session: Session, current_user: User) -> list[dict]:
         func.avg(KPIScore.total_score),
     )
     query = apply_score_scope(query, current_user)
+    query = query.filter(KPIScore.score_status == "CONFIRMED")
     rows = (
         query.group_by(KPIScore.period_month)
         .order_by(KPIScore.period_month.desc())
@@ -573,6 +788,10 @@ def _score_dict(score: KPIScore) -> dict:
         "template_id": score.template_id,
         "total_score": score.total_score,
         "classification": score.classification,
+        "reference_level": score.classification,
+        "score_status": score.score_status,
+        "confirmed_by": score.confirmed_by,
+        "confirmed_at": score.confirmed_at,
         "breakdown_json": score.breakdown_json,
         "ai_explanation": score.ai_explanation,
         "risk_level": score.risk_level,

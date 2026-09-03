@@ -86,13 +86,13 @@ function KpiScoreCard({ score }) {
         </div>
       </div>
 
-      {/* Xếp loại + rủi ro */}
+      {/* Monthly reference level and operational risk */}
       <div className="profile-kpi-meta">
         <Tag
           color={color}
           style={{ fontSize: 14, padding: "4px 12px", borderRadius: 8 }}
         >
-          {score.classification}
+          {score.reference_level || score.classification}
         </Tag>
         <div className="profile-kpi-risk" style={{ color }}>
           <WarningOutlined />

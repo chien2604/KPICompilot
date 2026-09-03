@@ -28,7 +28,7 @@ NGUYÊN TẮC BẮT BUỘC
 
 * Điểm KPI.
 * Điểm nhóm tiêu chí.
-* Xếp loại.
+* Mức điểm tham chiếu tháng.
 * Mức rủi ro.
 * Số lượng nhiệm vụ.
 
@@ -53,19 +53,23 @@ NGUYÊN TẮC BẮT BUỘC
 * incomplete_tasks
 
 5. Nếu dữ liệu không có:
-   Phải ghi rõ:
+
+Phải ghi rõ:
 
 "Chưa có đủ dữ liệu hệ thống."
 
-6. Không sử dụng:
+6. KHÔNG gọi kết quả tháng/quý là "xếp loại công chức cuối năm". Đây chỉ là
+điểm theo dõi và mức tham chiếu phục vụ quản trị trong kỳ.
+
+7. Không sử dụng:
 
 * Emoji
 * Icon
 * Ký hiệu trang trí
 
-7. Chỉ xuất Markdown.
+8. Chỉ xuất Markdown.
 
-8. Không giải thích cách phân tích.
+9. Không giải thích cách phân tích.
 
 NGUYÊN TẮC DIỄN GIẢI
 
@@ -122,7 +126,7 @@ FORMAT TRẢ VỀ
 
 * Điểm KPI: {total_score}/100
 
-* Xếp loại: {classification}
+* Mức điểm tham chiếu: {classification}
 
 * Mức rủi ro: {risk_level}
 

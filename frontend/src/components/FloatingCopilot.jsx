@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { Button, Input } from "antd";
 import {
   CloseOutlined,
-  RobotOutlined,
   SendOutlined,
+  SmileOutlined,
   UserOutlined,
+  WechatOutlined,
 } from "@ant-design/icons";
 import ReactMarkdown from "react-markdown";
 import { chatbotApi } from "../api/chatbotApi";
@@ -14,6 +15,13 @@ import { useAuth } from "../contexts/AuthContext";
 // Lấy tháng hiện tại dạng YYYY-MM
 /** Return the current month. */
 const getCurrentMonth = () => new Date().toISOString().slice(0, 7);
+
+const QUICK_QUESTIONS = [
+  "Tổng quan KPI tháng này?",
+  "Đơn vị nào cần cải thiện?",
+  "Có bao nhiêu nhiệm vụ quá hạn?",
+  "Hướng dẫn đánh giá KPI?",
+];
 
 /** Render the floating copilot interface. */
 export default function FloatingCopilot() {
@@ -78,9 +86,9 @@ export default function FloatingCopilot() {
   }, [messages]);
 
   /** Handle the send operation. */
-  const send = async () => {
-    if (!value.trim() || loading) return;
-    const question = value.trim();
+  const send = async (suggestedQuestion) => {
+    const question = (suggestedQuestion ?? value).trim();
+    if (!question || loading) return;
     setValue("");
 
     setMessages((prev) => [
@@ -150,7 +158,7 @@ export default function FloatingCopilot() {
         <div className="floating-copilot__popup">
           <div className="floating-copilot__header">
             <div className="floating-copilot__header-left">
-              <RobotOutlined style={{ fontSize: 20 }} />
+              <WechatOutlined style={{ fontSize: 20 }} />
               <span>AI KPI Copilot</span>
             </div>
             <button
@@ -164,8 +172,28 @@ export default function FloatingCopilot() {
           <div className="floating-copilot__messages">
             {messages.length === 0 && (
               <div className="floating-copilot__empty">
-                <RobotOutlined style={{ fontSize: 36, color: "#cbd5e1" }} />
-                <p>Xin chào! Tôi có thể giúp gì cho bạn?</p>
+                <div className="floating-copilot__welcome-icon">
+                  <SmileOutlined />
+                </div>
+                <div className="floating-copilot__welcome-copy">
+                  <strong>Xin chào! Tôi có thể giúp gì cho bạn?</strong>
+                  <span>
+                    Chọn một câu hỏi gợi ý hoặc nhập nội dung bên dưới.
+                  </span>
+                </div>
+                <div className="floating-copilot__quick-questions">
+                  {QUICK_QUESTIONS.map((question) => (
+                    <button
+                      type="button"
+                      key={question}
+                      onClick={() => send(question)}
+                      disabled={loading}
+                    >
+                      <WechatOutlined />
+                      <span>{question}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             {messages.map((msg) => (
@@ -177,7 +205,7 @@ export default function FloatingCopilot() {
                   className={`floating-copilot__avatar floating-copilot__avatar--${msg.role}`}
                 >
                   {msg.role === "assistant" ? (
-                    <RobotOutlined />
+                    <SmileOutlined />
                   ) : (
                     <UserOutlined />
                   )}
@@ -197,7 +225,7 @@ export default function FloatingCopilot() {
             {loading && (
               <div className="floating-copilot__msg floating-copilot__msg--assistant">
                 <div className="floating-copilot__avatar floating-copilot__avatar--assistant">
-                  <RobotOutlined />
+                  <SmileOutlined />
                 </div>
                 <div className="floating-copilot__bubble floating-copilot__bubble--assistant floating-copilot__bubble--typing">
                   <span />
@@ -222,7 +250,7 @@ export default function FloatingCopilot() {
             <Button
               type="primary"
               icon={<SendOutlined />}
-              onClick={send}
+              onClick={() => send()}
               loading={loading}
               disabled={!value.trim()}
               style={{ borderRadius: 10, height: 36, width: 36 }}
@@ -240,7 +268,7 @@ export default function FloatingCopilot() {
         {open ? (
           <CloseOutlined style={{ fontSize: 22 }} />
         ) : (
-          <RobotOutlined style={{ fontSize: 26 }} />
+          <WechatOutlined style={{ fontSize: 26 }} />
         )}
       </button>
     </div>

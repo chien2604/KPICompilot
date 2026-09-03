@@ -1,4 +1,5 @@
 from api.routes import (
+    audit,
     auth,
     chatbot,
     conversations,
@@ -27,6 +28,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix=settings.api_prefix)
+app.include_router(audit.router, prefix=settings.api_prefix)
 app.include_router(users.router, prefix=settings.api_prefix)
 app.include_router(departments.router, prefix=settings.api_prefix)
 app.include_router(tasks.router, prefix=settings.api_prefix)

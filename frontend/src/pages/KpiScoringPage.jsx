@@ -202,7 +202,8 @@ export default function KpiScoringPage() {
         <div>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{t}</div>
           <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-            Nhóm {record.document_type} · Trọng số {record.weight}
+            {record.work_catalog_code || "Chưa có mã"} · Hệ số{" "}
+            {record.conversion_factor ?? "—"}
           </div>
         </div>
       ),
@@ -407,7 +408,11 @@ export default function KpiScoringPage() {
                     <Col span={12}>
                       <Statistic
                         title="Phân loại"
-                        value={kpiScore?.classification ?? "—"}
+                        value={
+                          kpiScore?.reference_level ||
+                          kpiScore?.classification ||
+                          "—"
+                        }
                         valueStyle={{
                           color: scoreColor,
                           fontSize: 16,

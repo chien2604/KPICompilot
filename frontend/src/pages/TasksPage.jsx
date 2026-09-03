@@ -1,6 +1,7 @@
 import {
   Button,
   Card,
+  Checkbox,
   DatePicker,
   Form,
   Input,
@@ -29,7 +30,8 @@ import { kpiApi } from "../api/kpiApi";
 import TaskTable from "../components/TaskTable";
 
 const STATUS_OPTIONS = [
-  { value: "COMPLETED", label: "Hoàn thành", color: "#16a34a" },
+  { value: "VERIFIED", label: "Đã xác minh", color: "#16a34a" },
+  { value: "SUBMITTED", label: "Chờ xác minh", color: "#2563eb" },
   { value: "IN_PROGRESS", label: "Đang thực hiện", color: "#f59e0b" },
   { value: "NOT_STARTED", label: "Chưa bắt đầu", color: "#64748b" },
   { value: "OVERDUE", label: "Quá hạn", color: "#dc2626" },
@@ -40,8 +42,8 @@ export default function TasksPage() {
   const { user } = useAuth();
   const myId = user?.user_id;
   const canAssign =
-    user?.is_admin ||
-    ["LEADERSHIP", "UNIT_HEAD", "UNIT_DEPUTY"].includes(
+    !user?.is_admin &&
+    ["UBND_AUTHORITY", "UNIT_HEAD", "UNIT_DEPUTY"].includes(
       user?.organization_role,
     );
 
@@ -62,6 +64,11 @@ export default function TasksPage() {
   const [scoreModal, setScoreModal] = useState(null); // { taskId, userId, userName }
   const [form] = Form.useForm();
   const [scoreForm] = Form.useForm();
+  const qualityException = Form.useWatch(
+    "objective_quality_exception",
+    scoreForm,
+  );
+  const delayException = Form.useWatch("objective_delay_exception", scoreForm);
 
   // Bộ lọc
   const [filterStatus, setFilterStatus] = useState(null);
@@ -238,7 +245,6 @@ export default function TasksPage() {
       title: task.title,
       description: task.description,
       work_catalog_item_id: task.work_catalog_item_id,
-      document_type: task.document_type,
       deadline: task.deadline ? dayjs(task.deadline) : null,
       assigned_user_ids: task.assignees?.map((a) => a.user_id) || [],
     });
@@ -252,13 +258,32 @@ export default function TasksPage() {
   /* ── Chấm điểm ───────────────────────────────── */
   const submitScore = async () => {
     const values = await scoreForm.validateFields();
-    await taskApi.updateQuality(scoreModal.taskId, scoreModal.userId, values);
-    message.success(
-      `Đã cập nhật chất lượng sản phẩm của ${scoreModal.userName}`,
-    );
-    setScoreModal(null);
-    scoreForm.resetFields();
-    loadAll();
+    const payload = { ...values };
+    delete payload.objective_quality_exception;
+    delete payload.objective_delay_exception;
+    if (!qualityException) {
+      delete payload.quality_exception_reason;
+      delete payload.quality_exception_supporting_record;
+    }
+    if (!delayException) {
+      delete payload.delay_exception_reason;
+      delete payload.delay_exception_supporting_record;
+    }
+    try {
+      await taskApi.verifyAssignment(
+        scoreModal.taskId,
+        scoreModal.userId,
+        payload,
+      );
+      message.success(`Đã xác minh sản phẩm của ${scoreModal.userName}`);
+      setScoreModal(null);
+      scoreForm.resetFields();
+      loadAll();
+    } catch (error) {
+      message.error(
+        error.response?.data?.detail || "Không thể xác minh sản phẩm.",
+      );
+    }
   };
 
   /* ── Cập nhật trạng thái ─────────────────────── */
@@ -479,8 +504,6 @@ export default function TasksPage() {
           layout="vertical"
           form={form}
           initialValues={{
-            document_type: "C",
-            status: "NOT_STARTED",
             priority: "MEDIUM",
           }}
         >
@@ -541,14 +564,6 @@ export default function TasksPage() {
           <Form.Item name="description" label="Mô tả">
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Form.Item name="document_type" label="Nhóm văn bản">
-            <Select
-              options={["A", "B", "C", "D"].map((v) => ({
-                value: v,
-                label: v,
-              }))}
-            />
-          </Form.Item>
         </Form>
       </Modal>
 
@@ -566,18 +581,15 @@ export default function TasksPage() {
       >
         <Form layout="vertical" form={scoreForm}>
           <Form.Item
-            name="quality_percent"
-            label="Mức chất lượng sản phẩm (%)"
-            rules={[
-              { required: true, message: "Vui lòng nhập tỷ lệ chất lượng" },
-            ]}
+            name="quality_status"
+            label="Kết quả chất lượng"
+            rules={[{ required: true }]}
           >
-            <InputNumber
-              min={0}
-              max={100}
-              step={0.5}
-              style={{ width: "100%" }}
-              size="large"
+            <Select
+              options={[
+                { value: "PASS", label: "Đạt yêu cầu" },
+                { value: "FAIL", label: "Không đạt yêu cầu" },
+              ]}
             />
           </Form.Item>
           <Form.Item
@@ -590,6 +602,51 @@ export default function TasksPage() {
           <Form.Item name="late_count" label="Số lần trễ hạn" initialValue={0}>
             <InputNumber min={0} precision={0} style={{ width: "100%" }} />
           </Form.Item>
+          <Form.Item name="verification_note" label="Ghi chú xác minh">
+            <Input.TextArea rows={3} />
+          </Form.Item>
+          <Form.Item name="objective_quality_exception" valuePropName="checked">
+            <Checkbox>Sai sót chất lượng do nguyên nhân khách quan</Checkbox>
+          </Form.Item>
+          {qualityException && (
+            <>
+              <Form.Item
+                name="quality_exception_reason"
+                label="Lý do khách quan về chất lượng"
+                rules={[{ required: true, message: "Cần nhập lý do" }]}
+              >
+                <Input.TextArea rows={2} />
+              </Form.Item>
+              <Form.Item
+                name="quality_exception_supporting_record"
+                label="Hồ sơ/căn cứ xác nhận chất lượng"
+                rules={[{ required: true, message: "Cần nhập hồ sơ căn cứ" }]}
+              >
+                <Input />
+              </Form.Item>
+            </>
+          )}
+          <Form.Item name="objective_delay_exception" valuePropName="checked">
+            <Checkbox>Chậm tiến độ do nguyên nhân khách quan</Checkbox>
+          </Form.Item>
+          {delayException && (
+            <>
+              <Form.Item
+                name="delay_exception_reason"
+                label="Lý do khách quan về tiến độ"
+                rules={[{ required: true, message: "Cần nhập lý do" }]}
+              >
+                <Input.TextArea rows={2} />
+              </Form.Item>
+              <Form.Item
+                name="delay_exception_supporting_record"
+                label="Hồ sơ/căn cứ xác nhận tiến độ"
+                rules={[{ required: true, message: "Cần nhập hồ sơ căn cứ" }]}
+              >
+                <Input />
+              </Form.Item>
+            </>
+          )}
           <p style={{ color: "#64748b", fontSize: 13 }}>
             Rule Engine trừ 25% thành phần chất lượng cho mỗi lỗi nghiêm trọng
             và 25% thành phần tiến độ cho mỗi lần trễ. LLM không được sửa các tỷ

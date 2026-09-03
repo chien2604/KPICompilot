@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TaskAssignmentIn(BaseModel):
@@ -19,11 +19,8 @@ class TaskCreate(BaseModel):
     department_id: int | None = None
     work_catalog_item_id: int | None = None
     deadline: datetime | None = None
-    weight: float = 1
-    document_type: str = "C"
-    status: str = "NOT_STARTED"
     priority: str = "MEDIUM"
-    assigned_user_ids: list[int] = []
+    assigned_user_ids: list[int] = Field(default_factory=list)
 
 
 class TaskUpdate(BaseModel):
@@ -33,11 +30,7 @@ class TaskUpdate(BaseModel):
     description: str | None = None
     work_catalog_item_id: int | None = None
     deadline: datetime | None = None
-    weight: float | None = None
-    document_type: str | None = None
-    status: str | None = None
     priority: str | None = None
-    progress_percent: float | None = None
 
 
 class TaskStatusUpdate(BaseModel):
@@ -47,12 +40,17 @@ class TaskStatusUpdate(BaseModel):
     progress_percent: float | None = None
 
 
-class TaskQualityUpdate(BaseModel):
-    """Validate reviewer quality and Decree 335 deduction inputs."""
+class AssignmentVerification(BaseModel):
+    """Validate a human product review and deterministic deduction inputs."""
 
-    quality_percent: float
+    quality_status: str
     major_error_count: int = 0
     late_count: int = 0
+    verification_note: str | None = None
+    quality_exception_reason: str | None = None
+    quality_exception_supporting_record: str | None = None
+    delay_exception_reason: str | None = None
+    delay_exception_supporting_record: str | None = None
 
 
 class TaskOut(BaseModel):
@@ -66,13 +64,18 @@ class TaskOut(BaseModel):
     work_catalog_item_id: int | None = None
     work_catalog_code: str | None = None
     deadline: datetime | None = None
-    weight: float
-    document_type: str
+    catalog_name: str | None = None
+    expected_output: str | None = None
+    complexity_group: str | None = None
+    catalog_score: float | None = None
+    conversion_factor: float | None = None
+    assignment_authority: str | None = None
+    position_scope: str | None = None
     status: str
     priority: str
     created_at: datetime
     updated_at: datetime
-    assignees: list[dict] = []
+    assignees: list[dict] = Field(default_factory=list)
     evidence_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)

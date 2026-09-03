@@ -73,6 +73,9 @@ class WorkCatalogItem(Base):
     conversion_score: Mapped[float] = mapped_column(Float, nullable=False)
     conversion_factor: Mapped[float] = mapped_column(Float, nullable=False)
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    legal_source: Mapped[str] = mapped_column(
+        String(255), default="Quyết định 283/QĐ-UBND", nullable=False
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
@@ -86,7 +89,17 @@ class KPIAssessmentInput(Base):
     period_month: Mapped[str] = mapped_column(String(7), index=True)
     common_scores_json: Mapped[dict] = mapped_column(JSONB, default=dict)
     management_metrics_json: Mapped[dict] = mapped_column(JSONB, default=dict)
+    self_scores_json: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    reviewed_scores_json: Mapped[dict] = mapped_column(
+        JSONB, default=dict, nullable=False
+    )
+    management_review_json: Mapped[dict] = mapped_column(
+        JSONB, default=dict, nullable=False
+    )
+    self_assessed_at: Mapped[datetime | None] = mapped_column(DateTime)
     reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    review_note: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
@@ -103,7 +116,28 @@ class KPIScore(Base):
     template_id: Mapped[int | None] = mapped_column(ForeignKey("kpi_templates.id"))
     total_score: Mapped[float] = mapped_column(Float, default=0)
     classification: Mapped[str] = mapped_column(String(100), nullable=False)
+    score_status: Mapped[str] = mapped_column(
+        String(20), default="DRAFT", nullable=False, index=True
+    )
+    confirmed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime)
     breakdown_json: Mapped[dict] = mapped_column(JSONB, default=dict)
     ai_explanation: Mapped[str | None] = mapped_column(Text)
     risk_level: Mapped[str] = mapped_column(String(20), default="MEDIUM")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AuditLog(Base):
+    """Store immutable business events that can affect KPI results."""
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    action: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    entity_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    before_json: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    after_json: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

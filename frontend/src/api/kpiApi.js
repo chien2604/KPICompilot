@@ -45,4 +45,22 @@ export const kpiApi = {
         params: month ? { month } : {},
       })
       .then((res) => res.data),
+  saveSelfAssessment: (userId, payload, month) =>
+    apiClient
+      .put(`/kpi/users/${userId}/self-assessment`, payload, {
+        params: month ? { month } : {},
+      })
+      .then((res) => res.data),
+  reviewAssessment: (userId, payload, month) =>
+    apiClient
+      .put(`/kpi/users/${userId}/review`, payload, {
+        params: month ? { month } : {},
+      })
+      .then((res) => res.data),
+  confirmScore: (userId, month) =>
+    apiClient
+      .post(`/kpi/users/${userId}/score/confirm`, null, {
+        params: month ? { month } : {},
+      })
+      .then((res) => res.data),
 };

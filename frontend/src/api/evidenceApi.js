@@ -15,10 +15,10 @@ export const evidenceApi = {
       .then((res) => res.data),
   analyze: (id) =>
     apiClient.post(`/evidences/${id}/analyze`).then((res) => res.data),
-  upload: ({ task_id, uploaded_by, file }) => {
+  upload: ({ task_id, assignment_id, file }) => {
     const form = new FormData();
     form.append("task_id", task_id);
-    form.append("uploaded_by", uploaded_by);
+    form.append("assignment_id", assignment_id);
     form.append("file", file);
     return apiClient
       .post("/evidences/upload", form, {
@@ -26,4 +26,8 @@ export const evidenceApi = {
       })
       .then((res) => res.data);
   },
+  createReference: (payload) =>
+    apiClient.post("/evidences/reference", payload).then((res) => res.data),
+  verify: (id, payload) =>
+    apiClient.patch(`/evidences/${id}/verify`, payload).then((res) => res.data),
 };

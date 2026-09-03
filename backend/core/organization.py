@@ -6,7 +6,10 @@ ADMIN_ROLE = "admin"
 USER_ROLE = "user"
 ADMIN_TEMPLATE = "ADMIN"
 
-LEADERSHIP_ROLE = "LEADERSHIP"
+SYSTEM_ADMIN_ROLE = "SYSTEM_ADMIN"
+UBND_AUTHORITY_ROLE = "UBND_AUTHORITY"
+# Kept as an import alias for older modules and persisted data during migration.
+LEADERSHIP_ROLE = UBND_AUTHORITY_ROLE
 UNIT_HEAD_ROLE = "UNIT_HEAD"
 UNIT_DEPUTY_ROLE = "UNIT_DEPUTY"
 SPECIALIST_ROLE = "SPECIALIST"
@@ -26,9 +29,9 @@ class PositionTemplate:
 POSITION_TEMPLATES = (
     PositionTemplate(
         code="LANH_DAO_XA",
-        name="Lãnh đạo HĐND, UBND xã",
+        name="Người có thẩm quyền UBND xã",
         permission_level=1,
-        organization_role=LEADERSHIP_ROLE,
+        organization_role=UBND_AUTHORITY_ROLE,
     ),
     PositionTemplate(
         code="LANH_DAO_DON_VI",
@@ -50,7 +53,7 @@ POSITION_TEMPLATES = (
     ),
     PositionTemplate(
         code="CHUA_THUOC_PHAM_VI_KPI",
-        name="Viên chức chưa thuộc phạm vi KPI",
+        name="Nhân sự ngoài phạm vi KPI UBND",
         permission_level=5,
         organization_role=OUT_OF_SCOPE_ROLE,
     ),

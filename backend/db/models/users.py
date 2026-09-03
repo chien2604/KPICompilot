@@ -1,8 +1,8 @@
+from datetime import date
 from typing import TYPE_CHECKING
 
-from datetime import date
-
 from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.database import Base
@@ -25,6 +25,15 @@ class User(Base):
     permission_level: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
     organization_role: Mapped[str] = mapped_column(
         String(40), default="SPECIALIST", nullable=False, index=True
+    )
+    organization_domain: Mapped[str] = mapped_column(
+        String(30), default="UBND", nullable=False, index=True
+    )
+    manager_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    management_scope_json: Mapped[dict] = mapped_column(
+        JSONB, default=dict, nullable=False
     )
     primary_position_code: Mapped[str] = mapped_column(
         String(80), default="CHUA_XAC_DINH", nullable=False
@@ -65,6 +74,9 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
 
     department: Mapped["Department | None"] = relationship(back_populates="users")
+    manager: Mapped["User | None"] = relationship(
+        remote_side=[id], foreign_keys=[manager_id]
+    )
     work_areas: Mapped[list["UserWorkArea"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )

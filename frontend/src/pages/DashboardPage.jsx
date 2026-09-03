@@ -95,19 +95,22 @@ function OrganizationDashboard({ dashboard, organization }) {
       >
         <OrgHeatmap {...organization} compact />
       </Card>
-      <Row gutter={[16, 16]}>
+      <Row gutter={[16, 16]} className="dashboard-equal-row">
         <Col xs={24} lg={12}>
-          <Card title="Trạng thái nhiệm vụ">
+          <Card title="Trạng thái nhiệm vụ" className="dashboard-chart-card">
             <KpiDonutChart data={dashboard.task_status} />
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title="Xu hướng KPI toàn tổ chức">
+          <Card
+            title="Xu hướng KPI toàn tổ chức"
+            className="dashboard-chart-card"
+          >
             <KpiTrendChart data={dashboard.kpi_trend} />
           </Card>
         </Col>
       </Row>
-      <Row gutter={[16, 16]}>
+      <Row gutter={[16, 16]} className="dashboard-equal-row">
         <Col xs={24} lg={12}>
           <Card title="Top 5 KPI cao nhất">
             <List
@@ -184,19 +187,22 @@ function DepartmentDashboard({ dashboard }) {
           />
         </Col>
       </Row>
-      <Row gutter={[16, 16]}>
+      <Row gutter={[16, 16]} className="dashboard-equal-row">
         <Col xs={24} lg={12}>
-          <Card title="Trạng thái nhiệm vụ đơn vị">
+          <Card
+            title="Trạng thái nhiệm vụ đơn vị"
+            className="dashboard-chart-card"
+          >
             <KpiDonutChart data={dashboard.task_status} />
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title="Xu hướng KPI đơn vị">
+          <Card title="Xu hướng KPI đơn vị" className="dashboard-chart-card">
             <KpiTrendChart data={dashboard.kpi_trend} />
           </Card>
         </Col>
       </Row>
-      <Row gutter={[16, 16]}>
+      <Row gutter={[16, 16]} className="dashboard-equal-row">
         <Col xs={24} lg={12}>
           <Card title="Top 5 KPI cao nhất trong đơn vị">
             <List
@@ -264,14 +270,17 @@ function PersonalDashboard({ dashboard }) {
           />
         </Col>
       </Row>
-      <Row gutter={[16, 16]}>
+      <Row gutter={[16, 16]} className="dashboard-equal-row">
         <Col xs={24} lg={12}>
-          <Card title="Tiến độ công việc cá nhân">
+          <Card
+            title="Tiến độ công việc cá nhân"
+            className="dashboard-chart-card"
+          >
             <KpiDonutChart data={dashboard.task_status} />
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title="Xu hướng KPI cá nhân">
+          <Card title="Xu hướng KPI cá nhân" className="dashboard-chart-card">
             <KpiTrendChart data={dashboard.kpi_trend} />
           </Card>
         </Col>
