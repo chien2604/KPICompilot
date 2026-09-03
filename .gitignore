@@ -11,6 +11,7 @@ backend/storage/imports/*
 frontend/node_modules/
 frontend/dist/
 frontend/.env
+nginx/certs/*.pem
 __pycache__/
 *.pyc
 .DS_Store

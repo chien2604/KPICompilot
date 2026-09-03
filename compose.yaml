@@ -45,7 +45,7 @@ services:
       IMPORT_DIR: /app/storage/imports
       PERSONNEL_IMPORT_PATH: /app/import-data/personnel.xlsx
       WORK_CATALOG_IMPORT_PATH: /app/import-data/work-catalog.xlsx
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5191}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost}
     expose:
       - "8017"
     volumes:
@@ -97,9 +97,12 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${PUBLIC_PORT:-5191}:80"
+      - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${SSL_CERTIFICATE_PATH:?Hãy cấu hình SSL_CERTIFICATE_PATH trong .env.docker}:/etc/nginx/tls/fullchain.pem:ro
+      - ${SSL_CERTIFICATE_KEY_PATH:?Hãy cấu hình SSL_CERTIFICATE_KEY_PATH trong .env.docker}:/etc/nginx/tls/privkey.pem:ro
     depends_on:
       frontend:
         condition: service_healthy

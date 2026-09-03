@@ -1,16 +1,16 @@
 # Triển khai Docker - AI KPI Copilot UBND xã Nghĩa Lâm
 
-Hệ thống được đóng gói thành bốn service theo mô hình gateway một cổng:
+Hệ thống được đóng gói thành bốn service. Docker Nginx là điểm public duy nhất:
 
 | Service | Vai trò | Kết nối |
 | --- | --- | --- |
-| `nginx` | Gateway duy nhất | `127.0.0.1:${PUBLIC_PORT:-5191}` → `80` |
+| `nginx` | Gateway HTTPS duy nhất | Host `80/443` → container `80/443` |
 | `frontend` | React build + Nginx nội bộ | `frontend:80` |
 | `backend` | FastAPI + AI/GraphRAG nội bộ | `backend:8017` |
 | `postgres` | PostgreSQL 16 + pgvector nội bộ | `postgres:5432` |
 
-Gateway Nginx chuyển `/` tới frontend và giữ nguyên `/api` khi chuyển request tới
-backend. Frontend, backend và PostgreSQL không publish cổng trực tiếp lên host.
+Nginx chuyển `/` tới frontend và giữ nguyên `/api` khi chuyển request tới backend.
+Frontend, backend và PostgreSQL không publish cổng trực tiếp lên host.
 
 ## 1. Yêu cầu máy chủ
 
@@ -18,8 +18,9 @@ backend. Frontend, backend và PostgreSQL không publish cổng trực tiếp l�
 - RAM tối thiểu 4 GB; khuyến nghị 8 GB nếu bật embedding thật.
 - Docker Engine 24+ và Docker Compose plugin 2.20+.
 - Git.
-- Một reverse proxy trên host hoặc SSH tunnel nếu cần truy cập từ máy khác, vì
-  gateway container chỉ bind vào `127.0.0.1`.
+- Domain đã có bản ghi DNS `A`/`AAAA` trỏ về IP public của server.
+- Chứng chỉ TLS hợp lệ cho domain; có thể dùng Let's Encrypt trên host.
+- Host cho phép kết nối TCP vào cổng `80` và `443`.
 
 Kiểm tra:
 
@@ -42,7 +43,12 @@ nano .env.docker
 Thay tối thiểu các biến sau:
 
 ```dotenv
-PUBLIC_PORT=5191
+# Hai đường dẫn này nằm trên host và được mount read-only vào Nginx.
+# Ví dụ Let's Encrypt:
+# /etc/letsencrypt/live/kpi.example.gov.vn/fullchain.pem
+# /etc/letsencrypt/live/kpi.example.gov.vn/privkey.pem
+SSL_CERTIFICATE_PATH=/duong/dan/toi/fullchain.pem
+SSL_CERTIFICATE_KEY_PATH=/duong/dan/toi/privkey.pem
 POSTGRES_PASSWORD=mat_khau_postgres_dai_va_ngau_nhien
 JWT_SECRET_KEY=chuoi_64_ky_tu_vua_tao
 BOOTSTRAP_ADMIN_EMAIL=admin@example.gov.vn
@@ -62,6 +68,16 @@ CORS_ORIGINS=https://kpi.example.gov.vn
 Không commit `.env.docker`; file này đã được đưa vào `.gitignore`. Mật khẩu
 PostgreSQL nên chỉ dùng chữ, số và dấu gạch dưới vì nó được ghép vào connection
 URL của backend.
+
+Mở [`nginx/default.conf`](nginx/default.conf) và thay cả hai dòng
+`server_name localhost;` bằng domain thật. Ví dụ:
+
+```nginx
+server_name kpi.example.gov.vn;
+```
+
+Hai việc phải tự cấu hình theo server thực tế là domain và đường dẫn chứng chỉ.
+Không commit private key vào Git.
 
 Kiểm tra YAML và biến môi trường trước khi chạy:
 
@@ -113,10 +129,10 @@ docker compose --env-file .env.docker up -d
 docker compose --env-file .env.docker ps
 ```
 
-Truy cập:
+Truy cập sau khi DNS và TLS đã cấu hình:
 
-- Ứng dụng trên server: `http://127.0.0.1:${PUBLIC_PORT}`
-- API: `http://127.0.0.1:${PUBLIC_PORT}/api/...`
+- Ứng dụng: `https://kpi.example.gov.vn`
+- API: `https://kpi.example.gov.vn/api/...`
 - Backend và Swagger không được publish trực tiếp; truy cập nội bộ qua Docker
   network khi cần vận hành.
 
@@ -130,15 +146,17 @@ migration mỗi lần container khởi động. Các thao tác này có thể ch
 ## 5. Kiểm tra sau triển khai
 
 ```bash
-curl --fail http://127.0.0.1:${PUBLIC_PORT:-5191}/nginx-health
-curl --include http://127.0.0.1:${PUBLIC_PORT:-5191}/api/auth/me
+curl -I http://localhost
+curl -Ik https://localhost
+curl -ik https://localhost/api/auth/me
 docker compose --env-file .env.docker ps
 docker compose --env-file .env.docker logs --tail=100 backend
 docker compose --env-file .env.docker logs --tail=100 nginx
 ```
 
-Request `/api/auth/me` trả `401 Unauthorized` khi không có token là kết quả mong
-đợi và xác nhận gateway đã chuyển nguyên đường dẫn `/api` tới FastAPI.
+HTTP phải trả redirect `301` sang HTTPS. Request `/api/auth/me` trả
+`401 Unauthorized` khi không có token là kết quả mong đợi và xác nhận gateway đã
+chuyển nguyên đường dẫn `/api` tới FastAPI.
 
 Đăng nhập bằng tài khoản `BOOTSTRAP_ADMIN_EMAIL` và kiểm tra các màn Tổng quan,
 Heatmap, Hồ sơ, Công việc, Minh chứng, AI đánh giá, AI Copilot và Báo cáo.
@@ -199,19 +217,29 @@ docker run --rm \
   alpine:3.21 tar -czf /backup/backend_storage.tar.gz -C /data .
 ```
 
-## 9. Truy cập từ bên ngoài server
+## 9. Cấu hình domain và SSL
 
-Compose chỉ publish gateway vào loopback. Trên production, cấu hình reverse proxy
-HTTPS của host chuyển domain tới `http://127.0.0.1:${PUBLIC_PORT}`. Không thêm
-`ports` cho frontend, backend hoặc PostgreSQL.
+Docker Nginx public trực tiếp cổng `80/443`; không cần reverse proxy khác trên
+host. Trước khi khởi động, tự thực hiện hai cấu hình sau theo server:
 
-Có thể kiểm tra tạm từ máy quản trị bằng SSH tunnel:
+1. Trỏ DNS của domain về IP public server và thay hai dòng `server_name` trong
+   `nginx/default.conf`.
+2. Cấp chứng chỉ TLS, sau đó khai báo đường dẫn host trong `.env.docker` qua
+   `SSL_CERTIFICATE_PATH` và `SSL_CERTIFICATE_KEY_PATH`.
 
-```bash
-ssh -L 5191:127.0.0.1:5191 user@IP_SERVER
+Ví dụ khi Certbot đã tạo chứng chỉ trên host:
+
+```dotenv
+SSL_CERTIFICATE_PATH=/etc/letsencrypt/live/kpi.example.gov.vn/fullchain.pem
+SSL_CERTIFICATE_KEY_PATH=/etc/letsencrypt/live/kpi.example.gov.vn/privkey.pem
 ```
 
-Sau đó mở `http://127.0.0.1:5191` trên máy quản trị.
+Các file được mount read-only vào container. Khi Certbot gia hạn chứng chỉ, tạo
+lại riêng container Nginx để chắc chắn nhận đúng file certificate mới:
+
+```bash
+docker compose --env-file .env.docker up -d --force-recreate nginx
+```
 
 ## 10. Xử lý lỗi thường gặp
 
@@ -228,12 +256,13 @@ docker compose --env-file .env.docker logs --tail=200 nginx
 Kiểm tra cổng đang được sử dụng:
 
 ```bash
-sudo ss -ltnp | grep ":${PUBLIC_PORT:-5191}"
+sudo ss -ltnp | grep -E ':(80|443)\b'
 ```
 
-Nếu cổng bị chiếm, dừng tiến trình cũ hoặc đổi `PUBLIC_PORT` trong `.env.docker`
-rồi chạy `docker compose up -d` lại. Các biến cũ `FRONTEND_PORT`,
-`BACKEND_PORT`, `POSTGRES_PORT` và `*_BIND_ADDRESS` không còn được sử dụng.
+Nếu cổng `80` hoặc `443` bị chiếm, xác định và dừng reverse proxy/container cũ
+trước khi chạy Compose. Không đổi sang cổng khác nếu server cần public HTTP/HTTPS
+chuẩn. Các biến cũ `PUBLIC_PORT`, `FRONTEND_PORT`, `BACKEND_PORT`,
+`POSTGRES_PORT` và `*_BIND_ADDRESS` không còn được sử dụng.
 
 ## 11. Push Git từ máy phát triển
 
@@ -292,5 +321,12 @@ docker compose --env-file .env.docker up -d
 docker compose --env-file .env.docker ps
 ```
 
-Gateway chỉ lắng nghe trên loopback nên không cần mở `PUBLIC_PORT` bằng UFW.
-Hãy công khai ứng dụng qua reverse proxy HTTPS của host hoặc SSH tunnel như mục 9.
+Mở HTTP/HTTPS trên firewall nếu UFW đang bật:
+
+```bash
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+```
+
+Sau khi DNS và chứng chỉ hợp lệ, kiểm tra `https://DOMAIN` và endpoint thực tế
+`https://DOMAIN/api/auth/me` như mục 5.
